@@ -13,6 +13,8 @@ import {
 import TriggerNode from "../nodes/TriggerNode";
 import ActionNode from "../nodes/ActionNode";
 import ConditionNode from "../nodes/ConditionNode";
+import { useState } from "react";
+import PropertiesPanel from "./PropertiesPanel";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -69,13 +71,19 @@ const initialEdges: Edge[] = [];
 export default function FlowEditor() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const onConnect = (connection: Connection) => {
+   
     setEdges((currentEdges) => addEdge(connection, currentEdges));
   };
 
+
+  const selectedNode = nodes.find(
+  (node) => node.id === selectedNodeId
+);
   return (
-    <div className="flow-editor bg-red-800">
+    <div className="flow-editor ">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -83,6 +91,9 @@ export default function FlowEditor() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        onNodeClick={(_, node) => {
+            setSelectedNodeId(node.id)
+        }}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -92,6 +103,7 @@ export default function FlowEditor() {
 
         <Controls />
       </ReactFlow>
+   <PropertiesPanel selectedNode={selectedNode} />
     </div>
   );
 }
