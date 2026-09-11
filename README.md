@@ -1,75 +1,124 @@
-# React + TypeScript + Vite
+# Flowboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Flowboard is a visual workflow builder for creating, connecting, validating, and simulating business processes on a free-roam canvas.
 
-Currently, two official plugins are available:
+> 🚧 **Work in Progress**  
+> Flowboard is currently under active development. Features and UI will continue to evolve as the project grows.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Overview
 
-## React Compiler
+Business processes can become difficult to understand when they are represented only through documents, checklists, or disconnected rules.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Flowboard provides a visual canvas where workflows can be built as connected steps, making branches, relationships, and execution paths easier to understand.
 
-## Expanding the ESLint configuration
+The core product flow is:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+**Build → Configure → Validate → Simulate**
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Currently Implemented
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Interactive free-roam workflow canvas
+- Draggable workflow nodes
+- Trigger nodes
+- Action nodes
+- Condition nodes
+- Interactive node connections
+- YES / NO condition branching
+- Pan and zoom controls
+- Custom React Flow nodes
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech Stack
 
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Flow
+
+## Planned Features
+
+Flowboard is being developed incrementally. Upcoming features include:
+
+- Node selection
+- Properties and configuration panel
+- Delay and End node types
+- Workflow validation
+- Visual workflow simulation
+- Undo and redo
+- Keyboard interactions
+- Improved canvas controls
+- Workflow persistence
+- Accessibility improvements
+- Performance optimizations
+- UI polish and interaction states
+
+## How It Works
+
+A workflow is represented as a graph made up of **nodes** and **edges**.
+
+Nodes represent individual workflow steps such as:
+
+- Trigger
+- Action
+- Condition
+- Delay
+- End
+
+Edges represent the relationships between those steps.
+
+Condition nodes can create multiple execution paths using named branches such as `yes` and `no`.
+
+For example:
+
+```text
+              Trigger
+                 │
+                 ▼
+               Action
+                 │
+                 ▼
+             Condition
+              /      \
+            YES       NO
+             │         │
+             ▼         ▼
+          Action     Action
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+As Flowboard develops, this graph will also power workflow validation and execution simulation.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Getting Started
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Clone the repository:
 
+```bash
+git clone https://github.com/Liciacodes/flowboard.git
 ```
+
+Navigate into the project:
+
+```bash
+cd flowboard
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+## Project Status
+
+Flowboard is currently in active development.
+
+The current focus is building the core workflow editor and interaction model before expanding into validation, simulation, persistence, and more advanced workflow configuration.
+
+## Author
+
+Built by **LiciaCodes**.
