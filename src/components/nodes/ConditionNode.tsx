@@ -22,7 +22,12 @@ export default function ConditionNode({ data }: NodeProps) {
         </span>
 
         <p className="m-0 text-sm font-medium">{nodeData.label}</p>
+        <p className="mt-1 text-xs text-neutral-500">
+  {nodeData.field} {nodeData.operator} {nodeData.value}
+</p>
+
       </div>
+
 
       <span className="absolute bottom-[-24px] left-[35%] -translate-x-1/2 text-[9px] tracking-[0.05em] text-neutral-500">
         YES

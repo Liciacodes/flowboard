@@ -15,4 +15,13 @@ export type ActionNodeData = {
 
 export type ConditionNodeData = {
   label: string;
+  field: string;
+  operator: string;
+  value: string;
 };
+
+export type DelayNodeData = {
+  label: string;
+  duration: string;
+  unit: 'minutes'| "hours" | "days";
+}
