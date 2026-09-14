@@ -19,12 +19,14 @@ import ConditionNode from "../nodes/ConditionNode";
 import { useState } from "react";
 import PropertiesPanel from "./PropertiesPanel";
 import DelayNode from "../nodes/DelayNode";
+import EndNode from "../nodes/EndNode";
 
 const nodeTypes = {
   trigger: TriggerNode,
   action: ActionNode,
   condition: ConditionNode,
   delay: DelayNode,
+  end: EndNode
 };
 
 const initialNodes: Node[] = [
@@ -86,7 +88,7 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
-export function FlowEditorCanvas() {
+function FlowEditorCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export function FlowEditorCanvas() {
     );
   };
 
-  const addNode = (type: "trigger" | "action" | "condition" | "delay") => {
+  const addNode = (type: "trigger" | "action" | "condition" | "delay"| "end" ) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
@@ -158,6 +160,9 @@ export function FlowEditorCanvas() {
         duration: "1",
         unit: "hours",
       },
+      end: {
+        label: 'End workflow'
+      }
     };
 
     const newNode: Node = {
@@ -197,9 +202,19 @@ export function FlowEditorCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        deleteKeyCode={["Backspace", "Delete"]}
         nodeTypes={nodeTypes}
         onNodeClick={(_, node) => {
           setSelectedNodeId(node.id);
+        }}
+        onNodesDelete={(deletedNodes) => {
+          const selectedNodeWasDeleted = deletedNodes.some(
+            (node) => node.id === selectedNodeId,
+          );
+
+          if (selectedNodeWasDeleted) {
+            setSelectedNodeId(null);
+          }
         }}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
@@ -244,6 +259,13 @@ export function FlowEditorCanvas() {
             >
               Delay
             </button>
+
+            <button
+  onClick={() => addNode("end")}
+  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-900"
+>
+  End
+</button>
           </div>
         )}
       </div>

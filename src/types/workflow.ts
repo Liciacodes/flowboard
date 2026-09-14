@@ -25,3 +25,7 @@ export type DelayNodeData = {
   duration: string;
   unit: 'minutes'| "hours" | "days";
 }
+
+export type EndNodeData = {
+  label: string;
+}
