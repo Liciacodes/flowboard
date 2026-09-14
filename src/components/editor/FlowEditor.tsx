@@ -20,13 +20,14 @@ import { useState } from "react";
 import PropertiesPanel from "./PropertiesPanel";
 import DelayNode from "../nodes/DelayNode";
 import EndNode from "../nodes/EndNode";
+import { AnimatePresence } from "motion/react";
 
 const nodeTypes = {
   trigger: TriggerNode,
   action: ActionNode,
   condition: ConditionNode,
   delay: DelayNode,
-  end: EndNode
+  end: EndNode,
 };
 
 const initialNodes: Node[] = [
@@ -136,7 +137,9 @@ function FlowEditorCanvas() {
     );
   };
 
-  const addNode = (type: "trigger" | "action" | "condition" | "delay"| "end" ) => {
+  const addNode = (
+    type: "trigger" | "action" | "condition" | "delay" | "end",
+  ) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
@@ -161,8 +164,8 @@ function FlowEditorCanvas() {
         unit: "hours",
       },
       end: {
-        label: 'End workflow'
-      }
+        label: "End workflow",
+      },
     };
 
     const newNode: Node = {
@@ -261,20 +264,25 @@ function FlowEditorCanvas() {
             </button>
 
             <button
-  onClick={() => addNode("end")}
-  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-900"
->
-  End
-</button>
+              onClick={() => addNode("end")}
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-neutral-200 hover:bg-neutral-900"
+            >
+              End
+            </button>
           </div>
         )}
       </div>
-      <PropertiesPanel
-        selectedNode={selectedNode}
-        onLabelChange={handleLabelChange}
-        onNodeDataChange={handleNodeDataChange}
-        onDeleteNode={deleteSelectedNode}
-      />
+      <AnimatePresence>
+        {selectedNode && (
+          <PropertiesPanel
+            selectedNode={selectedNode}
+            onLabelChange={handleLabelChange}
+            onNodeDataChange={handleNodeDataChange}
+            onDeleteNode={deleteSelectedNode}
+            onClose={() => setSelectedNodeId(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
