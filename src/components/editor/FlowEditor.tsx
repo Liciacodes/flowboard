@@ -13,14 +13,15 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 
+import { useState } from "react";
+import { AnimatePresence } from "motion/react";
+
 import TriggerNode from "../nodes/TriggerNode";
 import ActionNode from "../nodes/ActionNode";
 import ConditionNode from "../nodes/ConditionNode";
-import { useState } from "react";
-import PropertiesPanel from "./PropertiesPanel";
 import DelayNode from "../nodes/DelayNode";
 import EndNode from "../nodes/EndNode";
-import { AnimatePresence } from "motion/react";
+import PropertiesPanel from "./PropertiesPanel";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -74,7 +75,6 @@ const initialNodes: Node[] = [
       label: "Notify team",
     },
   },
-
   {
     id: "6",
     type: "delay",
@@ -89,17 +89,84 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
+type ValidationIssue = {
+  message: string;
+};
+
+const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
+  const issues: ValidationIssue[] = [];
+
+  // Find the actual trigger node because we need its id later.
+  const triggerNode = nodes.find((node) => node.type === "trigger");
+
+  if (!triggerNode) {
+    issues.push({
+      message: "Workflow must have a trigger",
+    });
+  }
+
+  // If a trigger exists, check whether it has an outgoing connection.
+  if (triggerNode) {
+    const triggerIsConnected = edges.some(
+      (edge) => edge.source === triggerNode.id,
+    );
+
+    if (!triggerIsConnected) {
+      issues.push({
+        message: "Trigger must be connected to another node",
+      });
+    }
+  }
+
+  // Check whether at least one End node exists.
+  const endNode = nodes.find((node) => node.type === "end");
+
+  if (!endNode) {
+    issues.push({
+      message: "Workflow must have an end",
+    });
+  }
+
+  if (endNode) {
+    const endIsConnected = edges.some((edge) => 
+    edge.target === endNode.id,
+    )
+
+
+  if (!endIsConnected) {
+    issues.push({
+      message: 'End must be connected from another node'
+    })
+  }
+}
+  return issues;
+};
+
 function FlowEditorCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
   const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
+
+  const [validationIssues, setValidationIssues] = useState<
+    ValidationIssue[] | null
+  >(null);
+
   const { screenToFlowPosition } = useReactFlow();
+
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+
   const onConnect = (connection: Connection) => {
     setEdges((currentEdges) => addEdge(connection, currentEdges));
   };
 
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
+  const handleValidateWorkflow = () => {
+    const issues = validateWorkflow(nodes, edges);
+
+    setValidationIssues(issues);
+  };
 
   const handleLabelChange = (label: string) => {
     if (!selectedNodeId) return;
@@ -190,7 +257,8 @@ function FlowEditorCanvas() {
     setEdges((currentEdges) =>
       currentEdges.filter(
         (edge) =>
-          edge.source !== selectedNodeId && edge.target !== selectedNodeId,
+          edge.source !== selectedNodeId &&
+          edge.target !== selectedNodeId,
       ),
     );
 
@@ -220,19 +288,35 @@ function FlowEditorCanvas() {
           }
         }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+        />
 
         <Controls />
       </ReactFlow>
 
+      {/* Top-left controls */}
       <div className="absolute left-4 top-4 z-10">
-        <button
-          onClick={() => setIsNodeMenuOpen((open) => !open)}
-          className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
-        >
-          + Add node
-        </button>
+        {/* Only these two buttons are in the flex row */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsNodeMenuOpen((open) => !open)}
+            className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
+          >
+            + Add node
+          </button>
 
+          <button
+            onClick={handleValidateWorkflow}
+            className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
+          >
+            Validate workflow
+          </button>
+        </div>
+
+        {/* Add-node dropdown */}
         {isNodeMenuOpen && (
           <div className="mt-2 w-44 rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-xl">
             <button
@@ -271,7 +355,21 @@ function FlowEditorCanvas() {
             </button>
           </div>
         )}
+
+        {/* Validation results */}
+        {validationIssues !== null && (
+          <div className="mt-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white">
+            {validationIssues.length === 0 ? (
+              <p>Workflow is ready</p>
+            ) : (
+              validationIssues.map((issue, index) => (
+                <p key={index}>{issue.message}</p>
+              ))
+            )}
+          </div>
+        )}
       </div>
+
       <AnimatePresence>
         {selectedNode && (
           <PropertiesPanel
