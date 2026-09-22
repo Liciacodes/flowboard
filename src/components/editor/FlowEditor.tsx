@@ -113,7 +113,7 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!triggerIsConnected) {
       issues.push({
-        message: "Trigger must be connected to another node",
+      message: `"${String(triggerNode.data.label)}" must be connected to a node`
       });
     }
   }
@@ -128,17 +128,53 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
   }
 
   if (endNode) {
-    const endIsConnected = edges.some((edge) => 
-    edge.target === endNode.id,
-    )
+    const endIsConnected = edges.some((edge) => edge.target === endNode.id);
 
-
-  if (!endIsConnected) {
-    issues.push({
-      message: 'End must be connected from another node'
-    })
+    if (!endIsConnected) {
+      issues.push({
+       message: `"${String(endNode.data.label)}" must have an incoming connection`,
+      });
+    }
   }
-}
+
+  const nodesThatNeedOutgoingConnection = nodes.filter(
+    (node) => node.type === "action" || node.type === "delay",
+  );
+
+  nodesThatNeedOutgoingConnection.forEach((node) => {
+    const nodeIsConnected = edges.some((edge) => edge.source === node.id);
+
+    if (!nodeIsConnected) {
+      issues.push({
+message: `"${String(node.data.label)}" must be connected to another node`,
+      });
+    }
+  });
+
+  const conditionNodes = nodes.filter((node) => node.type === "condition");
+
+  conditionNodes.forEach((node) => {
+    const yesIsConnected = edges.some(
+      (edge) => edge.source === node.id && edge.sourceHandle === "yes",
+    );
+
+    const noIsConnected = edges.some(
+      (edge) => edge.source === node.id && edge.sourceHandle === "no",
+    );
+
+    if (!yesIsConnected) {
+      issues.push({
+        message:`"${String(node.data.label)}" YES branch must be connected`,
+      });
+    }
+
+    if (!noIsConnected) {
+      issues.push({
+        message: `"${String(node.data.label)}" "NO branch must be connected"`,
+      });
+    }
+  });
+
   return issues;
 };
 
@@ -257,8 +293,7 @@ function FlowEditorCanvas() {
     setEdges((currentEdges) =>
       currentEdges.filter(
         (edge) =>
-          edge.source !== selectedNodeId &&
-          edge.target !== selectedNodeId,
+          edge.source !== selectedNodeId && edge.target !== selectedNodeId,
       ),
     );
 
@@ -288,11 +323,7 @@ function FlowEditorCanvas() {
           }
         }}
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-        />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 
         <Controls />
       </ReactFlow>
@@ -357,14 +388,53 @@ function FlowEditorCanvas() {
         )}
 
         {/* Validation results */}
+        {/* Validation results */}
         {validationIssues !== null && (
-          <div className="mt-3 rounded-lg border border-neutral-800 bg-neutral-950 p-3 text-sm text-white">
+          <div className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-white shadow-xl">
             {validationIssues.length === 0 ? (
-              <p>Workflow is ready</p>
+              // Success state
+              <div className="flex items-start gap-3">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-xs text-emerald-400">
+                  ✓
+                </span>
+
+                <div>
+                  <p className="font-medium text-neutral-100">
+                    Workflow is ready
+                  </p>
+
+                  <p className="mt-1 text-xs text-neutral-500">
+                    All validation checks passed.
+                  </p>
+                </div>
+              </div>
             ) : (
-              validationIssues.map((issue, index) => (
-                <p key={index}>{issue.message}</p>
-              ))
+              // Error state
+              <>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-xs text-red-400">
+                    !
+                  </span>
+
+                  <p className="font-medium text-neutral-100">
+                    {validationIssues.length}{" "}
+                    {validationIssues.length === 1 ? "issue" : "issues"} found
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {validationIssues.map((issue, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 text-xs text-neutral-300"
+                    >
+                      <span className="mt-[2px] text-red-400">•</span>
+
+                      <p className="leading-5">{issue.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
