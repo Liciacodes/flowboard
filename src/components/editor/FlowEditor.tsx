@@ -113,7 +113,7 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!triggerIsConnected) {
       issues.push({
-      message: `"${String(triggerNode.data.label)}" must be connected to a node`
+        message: `"${String(triggerNode.data.label)}" must be connected to a node`,
       });
     }
   }
@@ -132,7 +132,7 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!endIsConnected) {
       issues.push({
-       message: `"${String(endNode.data.label)}" must have an incoming connection`,
+        message: `"${String(endNode.data.label)}" must have an incoming connection`,
       });
     }
   }
@@ -146,7 +146,7 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!nodeIsConnected) {
       issues.push({
-message: `"${String(node.data.label)}" must be connected to another node`,
+        message: `"${String(node.data.label)}" must be connected to another node`,
       });
     }
   });
@@ -164,7 +164,7 @@ message: `"${String(node.data.label)}" must be connected to another node`,
 
     if (!yesIsConnected) {
       issues.push({
-        message:`"${String(node.data.label)}" YES branch must be connected`,
+        message: `"${String(node.data.label)}" YES branch must be connected`,
       });
     }
 
@@ -174,6 +174,41 @@ message: `"${String(node.data.label)}" must be connected to another node`,
       });
     }
   });
+
+  if (triggerNode && endNode) {
+    const visited = new Set<string>();
+
+    const canReachEnd = (currentNodeId: string): boolean => {
+      if (visited.has(currentNodeId)) {
+        return false;
+      }
+
+      visited.add(currentNodeId);
+
+      if (currentNodeId === endNode.id) {
+        return true;
+      }
+
+      const outgoingEdges = edges.filter(
+        (edge) => edge.source === currentNodeId,
+      );
+
+      const nextNodeIds = outgoingEdges.map((edge) => edge.target);
+      if (nextNodeIds.length === 0) {
+        return false;
+      }
+
+      return nextNodeIds.some((nextNodeIds) => canReachEnd(nextNodeIds));
+    };
+
+    const triggerCanReachEnd = canReachEnd(triggerNode.id);
+
+    if (!triggerCanReachEnd) {
+      issues.push({
+        message: 'The workflow does not have a valid path from Trigger to End'
+      })
+    }
+  }
 
   return issues;
 };
@@ -387,7 +422,7 @@ function FlowEditorCanvas() {
           </div>
         )}
 
-        {/* Validation results */}
+      
         {/* Validation results */}
         {validationIssues !== null && (
           <div className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-white shadow-xl">
