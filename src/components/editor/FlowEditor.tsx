@@ -178,22 +178,29 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
   if (triggerNode && endNode) {
     const visited = new Set<string>();
 
-    const canReachEnd = (currentNodeId: string): boolean => {
+    const canReachEnd = (currentNodeId: string, 
+      visited = new Set<string>
+    ): boolean => {
+
       if (visited.has(currentNodeId)) {
         return false;
       }
 
-      visited.add(currentNodeId);
-
-      if (currentNodeId === endNode.id) {
+        if (currentNodeId === endNode.id) {
         return true;
       }
+
+const nextVisited = new Set(visited)
+      visited.add(currentNodeId);
+
+    
 
       const outgoingEdges = edges.filter(
         (edge) => edge.source === currentNodeId,
       );
 
       const nextNodeIds = outgoingEdges.map((edge) => edge.target);
+      
       if (nextNodeIds.length === 0) {
         return false;
       }
