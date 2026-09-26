@@ -7,11 +7,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 dotenv.config();
 
-const adapter = new PrismaPg(
-    {
-     connectionString: process.env.DATABASE_URL!
-     }
-)
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!,
+});
 
 const prisma = new PrismaClient({
   adapter,
@@ -28,35 +26,110 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.post('/api/workflows', async(req, res) => {
-    try {
-        const {name, nodes, edges} = req.body;
+app.get("/api/workflows", async (_req, res) => {
+  try {
+    const workflows = await prisma.workflow.findMany({
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+    res.status(200).json({
+      workflows,
+    });
+  } catch (error) {
+    console.error("Failed to fetch workflow", error);
+
+    res.status(500).json({
+      message: "Failed to fetch workflow",
+    });
+  }
+});
+
+app.post("/api/workflows", async (req, res) => {
+  try {
+    const { name, nodes, edges } = req.body;
 
     const workflow = await prisma.workflow.create({
-        data: {
-            name, 
-            nodes, 
-            edges
-        }
-    })
-
+      data: {
+        name,
+        nodes,
+        edges,
+      },
+    });
 
     res.status(201).json({
-        message: 'Workflow created succesfully',
-        workflow,
+      message: "Workflow created succesfully",
+      workflow,
+    });
+  } catch (error) {
+    console.error("failed to create workflow", error);
+
+    res.status(500).json({
+      message: "Failed to create workflow",
+    });
+  }
+});
+
+
+app.get('/api/workflows/:id', async (req, res) => {
+  try {
+
+    const { id} = req.params;
+
+    const workflow = await prisma.workflow.findUnique({
+      where: {
+        id
+      }
     })
 
+    if (!workflow) {
+      return res.status(404).json({
+        message: 'Workflow not found'
+      })
     }
-catch (error) {
-  console.error("failed to create workflow", error);
 
-  res.status(500).json({
-    message: "Failed to create workflow",
-  });
-}
 
-  
-    
+   res.status(200).json({
+      workflow,
+    });
+  } catch (error) {
+ console.error("Failed to fetch workflow", error);
+
+    res.status(500).json({
+      message: "Failed to fetch workflow",
+    });
+  }
+})
+
+
+app.patch('/api/workflows/:id', async (req, res) => {
+  try {
+    const {id } = req.params;
+    const {name, nodes, edges, status} = req.body;
+
+    const workflow = await prisma.workflow.update({
+      where: {
+        id
+      },
+      data: {
+        name,
+        edges,
+        nodes,
+        status
+      }
+    })
+
+    res.status(200).json({
+      message: 'Workflow updated successfully',
+      workflow
+    })
+  } catch (error) {
+    console.error('failed to update workflow', error)
+
+    res.status(500).json({
+       message: "Failed to update workflow",
+    })
+  }
 })
 
 const PORT = process.env.PORT || 5000;
