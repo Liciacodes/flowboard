@@ -12,34 +12,75 @@ type Workflow = {
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
 
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const handleCreateWorkflow = async () => {
-  try {
-    const response = await fetch("http://localhost:5000/api/workflows", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Untitled Workflow",
-        nodes: [],
-        edges: [],
-      }),
-    });
+    try {
+      const response = await fetch("http://localhost:5000/api/workflows", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Untitled Workflow",
+          nodes: [],
+          edges: [],
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to create workflow");
+      if (!response.ok) {
+        throw new Error("Failed to create workflow");
+      }
+
+      const data = await response.json();
+
+      navigate(`/workflows/${data.workflow.id}`);
+    } catch (error) {
+      console.error("Error creating workflow:", error);
     }
+  };
 
-    const data = await response.json();
+  const handleDeleteWorkflow = async (id: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/workflows/${id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
-    navigate(`/workflows/${data.workflow.id}`);
-  } catch (error) {
-    console.error("Error creating workflow:", error);
-  }
-};
+      if (!response.ok) {
+        throw new Error("Failed to delete workflow");
+      }
 
+      setWorkflows((currentWorkflows) =>
+        currentWorkflows.filter((workflow) => workflow.id !== id),
+      );
+    } catch (error) {
+      console.error("Error deleting workflow:", error);
+    }
+  };
+
+  const handleDuplicateWorkflow = async (id: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/workflows/${id}/duplicate`,
+        {
+          method: "POST",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to duplicate workflow");
+      }
+
+      const data = await response.json();
+
+      setWorkflows((currentWorkflows) => [data.workflow, ...currentWorkflows]);
+    } catch (error) {
+      console.error("Error duplicating workflow:", error);
+    }
+  };
 
   useEffect(() => {
     const loadWorkflows = async () => {
@@ -65,28 +106,41 @@ export default function WorkflowsPage() {
     <main className="min-h-screen bg-neutral-950 p-8 text-white">
       <h1 className="text-2xl font-semibold">My Workflows</h1>
 
-
-<button
-    onClick={handleCreateWorkflow}
-    className="rounded-lg bg-white px-4 py-2 mt-4 text-sm font-medium text-black hover:bg-neutral-200"
-  >
-    + New Workflow
-  </button>
-
+      <button
+        onClick={handleCreateWorkflow}
+        className="rounded-lg bg-white px-4 py-2 mt-4 text-sm font-medium text-black hover:bg-neutral-200"
+      >
+        + New Workflow
+      </button>
 
       <div className="mt-6 space-y-3">
         {workflows.map((workflow) => (
-          <Link
+          <div
             key={workflow.id}
-            to={`/workflows/${workflow.id}`}
-            className="block rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:bg-neutral-800"
+            className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:bg-neutral-800"
           >
-            <h2 className="font-medium">{workflow.name}</h2>
+            <Link to={`/workflows/${workflow.id}`} className="flex-1">
+              <h2 className="font-medium">{workflow.name}</h2>
 
-            <p className="mt-1 text-sm text-neutral-400">
-              {workflow.status}
-            </p>
-          </Link>
+              <p className="mt-1 text-sm text-neutral-400">{workflow.status}</p>
+            </Link>
+
+            <div className="ml-4 flex gap-2">
+              <button
+                onClick={() => handleDuplicateWorkflow(workflow.id)}
+                className="rounded-lg px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+              >
+                Duplicate
+              </button>
+
+              <button
+                onClick={() => handleDeleteWorkflow(workflow.id)}
+                className="rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </main>

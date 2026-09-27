@@ -70,65 +70,120 @@ app.post("/api/workflows", async (req, res) => {
   }
 });
 
-
-app.get('/api/workflows/:id', async (req, res) => {
+app.get("/api/workflows/:id", async (req, res) => {
   try {
-
-    const { id} = req.params;
+    const { id } = req.params;
 
     const workflow = await prisma.workflow.findUnique({
       where: {
-        id
-      }
-    })
+        id,
+      },
+    });
 
     if (!workflow) {
       return res.status(404).json({
-        message: 'Workflow not found'
-      })
+        message: "Workflow not found",
+      });
     }
 
-
-   res.status(200).json({
+    res.status(200).json({
       workflow,
     });
   } catch (error) {
- console.error("Failed to fetch workflow", error);
+    console.error("Failed to fetch workflow", error);
 
     res.status(500).json({
       message: "Failed to fetch workflow",
     });
   }
-})
+});
 
-
-app.patch('/api/workflows/:id', async (req, res) => {
+app.patch("/api/workflows/:id", async (req, res) => {
   try {
-    const {id } = req.params;
-    const {name, nodes, edges, status} = req.body;
+    const { id } = req.params;
+    const { name, nodes, edges, status } = req.body;
 
     const workflow = await prisma.workflow.update({
       where: {
-        id
+        id,
       },
       data: {
         name,
         edges,
         nodes,
-        status
-      }
-    })
+        status,
+      },
+    });
 
     res.status(200).json({
-      message: 'Workflow updated successfully',
-      workflow
-    })
+      message: "Workflow updated successfully",
+      workflow,
+    });
   } catch (error) {
-    console.error('failed to update workflow', error)
+    console.error("failed to update workflow", error);
 
     res.status(500).json({
-       message: "Failed to update workflow",
-    })
+      message: "Failed to update workflow",
+    });
+  }
+});
+
+app.delete("/api/workflows/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const workflow = await prisma.workflow.delete({
+      where: {
+        id,
+      },
+    });
+
+    res.json({
+      message: "Workflow deleted successfully",
+      workflow,
+    });
+  } catch (error) {
+    console.error("Failed to delete workflow");
+  }
+});
+
+app.post('/api/workflows/:id/duplicate', async (req, res) => {
+  try {
+const { id } = req.params;
+
+const workflow = await prisma.workflow.findUnique({
+  where: {
+    id,
+  }
+})
+
+if (!workflow) {
+  return res.status(404).json({
+    message: 'Workflow not found'
+  })
+}
+
+const duplicatedWorkflow = await prisma.workflow.create({
+  data: {
+    name: `${workflow.name} Copy`,
+    nodes: workflow.nodes ?? [],
+    edges: workflow.edges ?? [],
+    status: workflow.status
+  }
+})
+
+res.status(201).json({
+  message: "Workflow duplicated successfully",
+      workflow: duplicatedWorkflow,
+})
+  }
+
+  catch (error) {
+ console.error("Failed to duplicate workflow", error);
+
+    res.status(500).json({
+      message: "Failed to duplicate workflow",
+    });
   }
 })
 
