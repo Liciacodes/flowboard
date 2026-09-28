@@ -11,6 +11,7 @@ type Workflow = {
 
 export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const navigate = useNavigate();
 
@@ -96,6 +97,8 @@ export default function WorkflowsPage() {
         setWorkflows(data.workflows);
       } catch (error) {
         console.error("Error loading workflows:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -108,40 +111,72 @@ export default function WorkflowsPage() {
 
       <button
         onClick={handleCreateWorkflow}
-        className="rounded-lg bg-white px-4 py-2 mt-4 text-sm font-medium text-black hover:bg-neutral-200"
+        className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
       >
         + New Workflow
       </button>
 
-      <div className="mt-6 space-y-3">
-        {workflows.map((workflow) => (
-          <div
-            key={workflow.id}
-            className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:bg-neutral-800"
-          >
-            <Link to={`/workflows/${workflow.id}`} className="flex-1">
-              <h2 className="font-medium">{workflow.name}</h2>
-
-              <p className="mt-1 text-sm text-neutral-400">{workflow.status}</p>
-            </Link>
-
-            <div className="ml-4 flex gap-2">
-              <button
-                onClick={() => handleDuplicateWorkflow(workflow.id)}
-                className="rounded-lg px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
-              >
-                Duplicate
-              </button>
-
-              <button
-                onClick={() => handleDeleteWorkflow(workflow.id)}
-                className="rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
-              >
-                Delete
-              </button>
-            </div>
+      <div className="mt-6">
+        {isLoading ? (
+          <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-8 text-center">
+            <p className="text-sm text-neutral-400">
+              Loading workflows...
+            </p>
           </div>
-        ))}
+        ) : workflows.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-neutral-800 bg-neutral-900/50 p-10 text-center">
+            <h2 className="text-lg font-medium text-white">
+              No workflows yet
+            </h2>
+
+            <p className="mt-2 text-sm text-neutral-400">
+              Create your first workflow to get started.
+            </p>
+
+            <button
+              onClick={handleCreateWorkflow}
+              className="mt-5 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
+            >
+              + Create your first workflow
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {workflows.map((workflow) => (
+              <div
+                key={workflow.id}
+                className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 p-4 hover:bg-neutral-800"
+              >
+                <Link
+                  to={`/workflows/${workflow.id}`}
+                  className="flex-1"
+                >
+                  <h2 className="font-medium">{workflow.name}</h2>
+
+                  <p className="mt-1 text-sm text-neutral-400">
+                    {workflow.status}
+                  </p>
+                </Link>
+
+                <div className="ml-4 flex gap-2">
+                  <button
+                    onClick={() => handleDuplicateWorkflow(workflow.id)}
+                    className="rounded-lg px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+                  >
+                    Duplicate
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteWorkflow(workflow.id)}
+                    className="rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

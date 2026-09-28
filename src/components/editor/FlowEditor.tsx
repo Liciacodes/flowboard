@@ -56,7 +56,9 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!triggerIsConnected) {
       issues.push({
-        message: `"${String(triggerNode.data.label)}" must be connected to a node`,
+        message: `"${String(
+          triggerNode.data.label,
+        )}" must be connected to a node`,
       });
     }
   }
@@ -78,7 +80,9 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!endIsConnected) {
       issues.push({
-        message: `"${String(endNode.data.label)}" must have an incoming connection`,
+        message: `"${String(
+          endNode.data.label,
+        )}" must have an incoming connection`,
       });
     }
   });
@@ -95,7 +99,9 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!nodeIsConnected) {
       issues.push({
-        message: `"${String(node.data.label)}" must be connected to another node`,
+        message: `"${String(
+          node.data.label,
+        )}" must be connected to another node`,
       });
     }
   });
@@ -120,13 +126,17 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
 
     if (!yesIsConnected) {
       issues.push({
-        message: `"${String(node.data.label)}" YES branch must be connected`,
+        message: `"${String(
+          node.data.label,
+        )}" YES branch must be connected`,
       });
     }
 
     if (!noIsConnected) {
       issues.push({
-        message: `"${String(node.data.label)}" NO branch must be connected`,
+        message: `"${String(
+          node.data.label,
+        )}" NO branch must be connected`,
       });
     }
   });
@@ -194,17 +204,25 @@ function FlowEditorCanvas() {
   const [selectedNodeId, setSelectedNodeId] =
     useState<string | null>(null);
 
-  const [isNodeMenuOpen, setIsNodeMenuOpen] =
-    useState(false);
+  const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
 
-  const [validationIssues, setValidationIssues] =
-    useState<ValidationIssue[] | null>(null);
+  const [validationIssues, setValidationIssues] = useState<
+    ValidationIssue[] | null
+  >(null);
 
-  const [workflowName, setWorkflowName] =
-    useState("");
+  const [workflowName, setWorkflowName] = useState("");
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [savedWorkflow, setSavedWorkflow] = useState<{
+    name: string;
+    nodes: Node[];
+    edges: Edge[];
+  } | null>(null);
 
   const { screenToFlowPosition } = useReactFlow();
 
@@ -212,11 +230,36 @@ function FlowEditorCanvas() {
     (node) => node.id === selectedNodeId,
   );
 
+  const hasUnsavedChanges =
+    savedWorkflow !== null &&
+    JSON.stringify({
+      name: workflowName,
+      nodes,
+      edges,
+    }) !== JSON.stringify(savedWorkflow);
+
   const onConnect = (connection: Connection) => {
     setEdges((currentEdges) =>
       addEdge(connection, currentEdges),
     );
   };
+
+  useEffect(() => {
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    event.preventDefault();
+    event.returnValue = "";
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  };
+}, [hasUnsavedChanges]);
 
   // Load workflow from backend
   useEffect(() => {
@@ -235,6 +278,12 @@ function FlowEditorCanvas() {
         setNodes(data.workflow.nodes);
         setEdges(data.workflow.edges);
         setWorkflowName(data.workflow.name);
+
+        setSavedWorkflow({
+          name: data.workflow.name,
+          nodes: data.workflow.nodes,
+          edges: data.workflow.edges,
+        });
       } catch (error) {
         console.error("Error loading workflow:", error);
       } finally {
@@ -247,6 +296,8 @@ function FlowEditorCanvas() {
 
   // Save workflow
   const handleSaveWorkflow = async () => {
+    setSaveStatus("saving");
+
     try {
       const response = await fetch(
         `http://localhost:5000/api/workflows/${id}`,
@@ -271,8 +322,22 @@ function FlowEditorCanvas() {
       const data = await response.json();
 
       console.log("Workflow saved:", data);
+
+      setSavedWorkflow({
+        name: workflowName,
+        nodes,
+        edges,
+      });
+
+      setSaveStatus("saved");
+
+      setTimeout(() => {
+        setSaveStatus("idle");
+      }, 2000);
     } catch (error) {
       console.error("Error saving workflow:", error);
+
+      setSaveStatus("error");
     }
   };
 
@@ -326,12 +391,7 @@ function FlowEditorCanvas() {
 
   // Add a new node
   const addNode = (
-    type:
-      | "trigger"
-      | "action"
-      | "condition"
-      | "delay"
-      | "end",
+    type: "trigger" | "action" | "condition" | "delay" | "end",
   ) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2,
@@ -474,11 +534,23 @@ function FlowEditorCanvas() {
             Validate workflow
           </button>
 
+          {hasUnsavedChanges && (
+            <span className="flex items-center px-2 text-xs text-amber-400">
+              Unsaved changes
+            </span>
+          )}
+
           <button
             onClick={handleSaveWorkflow}
             className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
           >
-            Save workflow
+            {saveStatus === "saving"
+              ? "Saving..."
+              : saveStatus === "saved"
+                ? "✓ Saved"
+                : saveStatus === "error"
+                  ? "Save failed"
+                  : "Save workflow"}
           </button>
         </div>
 
@@ -560,22 +632,20 @@ function FlowEditorCanvas() {
                 </div>
 
                 <div className="space-y-2">
-                  {validationIssues.map(
-                    (issue, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start gap-2 text-xs text-neutral-300"
-                      >
-                        <span className="mt-[2px] text-red-400">
-                          •
-                        </span>
+                  {validationIssues.map((issue, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 text-xs text-neutral-300"
+                    >
+                      <span className="mt-[2px] text-red-400">
+                        •
+                      </span>
 
-                        <p className="leading-5">
-                          {issue.message}
-                        </p>
-                      </div>
-                    ),
-                  )}
+                      <p className="leading-5">
+                        {issue.message}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
