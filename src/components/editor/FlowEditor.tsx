@@ -13,7 +13,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 
-import { useParams } from "react-router-dom";
+import { useBlocker, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "motion/react";
 
@@ -192,6 +192,19 @@ const validateWorkflow = (nodes: Node[], edges: Edge[]) => {
   return issues;
 };
 
+const getWorkflowSnapshot = (
+  name: string,
+  workflowNodes: Node[],
+  workflowEdges: Edge[],
+) => ({
+  name,
+  nodes: workflowNodes.map(
+    ({ selected, dragging, measured, ...node }) => node,
+  ),
+  edges: workflowEdges.map(({ selected, ...edge }) => edge),
+});
+
+
 function FlowEditorCanvas() {
   const { id } = useParams();
 
@@ -230,19 +243,48 @@ function FlowEditorCanvas() {
     (node) => node.id === selectedNodeId,
   );
 
-  const hasUnsavedChanges =
-    savedWorkflow !== null &&
-    JSON.stringify({
-      name: workflowName,
-      nodes,
-      edges,
-    }) !== JSON.stringify(savedWorkflow);
+ const currentWorkflowSnapshot = getWorkflowSnapshot(
+  workflowName,
+  nodes,
+  edges,
+);
+
+const savedWorkflowSnapshot = savedWorkflow
+  ? getWorkflowSnapshot(
+      savedWorkflow.name,
+      savedWorkflow.nodes,
+      savedWorkflow.edges,
+    )
+  : null;
+
+const hasUnsavedChanges =
+  savedWorkflowSnapshot !== null &&
+  JSON.stringify(currentWorkflowSnapshot) !==
+    JSON.stringify(savedWorkflowSnapshot);
 
   const onConnect = (connection: Connection) => {
     setEdges((currentEdges) =>
       addEdge(connection, currentEdges),
     );
   };
+
+  const blocker = useBlocker(hasUnsavedChanges)
+
+  useEffect(() => {
+  if (blocker.state !== "blocked") {
+    return;
+  }
+
+  const shouldLeave = window.confirm(
+    "You have unsaved changes. Are you sure you want to leave?",
+  );
+
+  if (shouldLeave) {
+    blocker.proceed();
+  } else {
+    blocker.reset();
+  }
+}, [blocker]);
 
   useEffect(() => {
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
