@@ -53,16 +53,25 @@ const getDelayInMilliseconds = (
   }
 };
 
+// Looks the field up in the sample data, then compares it to the expected value.
+// Returns null when the condition can't be evaluated (missing field, bad operator, bad numbers).
 const evaluateCondition = (
   field: string | undefined,
   operator: string | undefined,
   value: string | undefined,
+  sampleData: Record<string, unknown>,
 ) => {
   if (!field || !operator) {
     return null;
   }
 
-  const actualValue = field.trim();
+  const rawValue = sampleData[field.trim()];
+
+  if (rawValue === undefined || rawValue === null) {
+    return null;
+  }
+
+  const actualValue = String(rawValue).trim();
   const expectedValue = value?.trim() ?? "";
 
   switch (operator) {
@@ -113,12 +122,13 @@ const evaluateCondition = (
 export async function executeWorkflow(
   nodes: WorkflowNode[],
   edges: Edge[],
+  onNodeStart?: (nodeId: string) => void,
+  sampleData: Record<string, unknown> = {},
+  onEdgeTaken?: (edgeId: string) => void,
 ): Promise<ExecuteWorkflowResult> {
   const logs: ExecutionLog[] = [];
 
-  const triggerNode = nodes.find(
-    (node) => node.type === "trigger",
-  );
+  const triggerNode = nodes.find((node) => node.type === "trigger");
 
   if (!triggerNode) {
     return {
@@ -130,8 +140,7 @@ export async function executeWorkflow(
 
   const visitedNodes = new Set<string>();
 
-  let currentNode: WorkflowNode | undefined =
-    triggerNode;
+  let currentNode: WorkflowNode | undefined = triggerNode;
 
   while (currentNode) {
     if (visitedNodes.has(currentNode.id)) {
@@ -149,7 +158,9 @@ export async function executeWorkflow(
         ? currentNode.data.label
         : currentNode.type ?? "Unknown node";
 
-    console.log(`Executing node: ${label}`);
+    // Tell the UI which node is running, then pause so the glow is visible.
+    onNodeStart?.(currentNode.id);
+    await wait(600);
 
     // Trigger
     if (currentNode.type === "trigger") {
@@ -163,8 +174,6 @@ export async function executeWorkflow(
 
     // Action
     if (currentNode.type === "action") {
-      await wait(800);
-
       logs.push({
         nodeId: currentNode.id,
         nodeType: currentNode.type,
@@ -178,8 +187,7 @@ export async function executeWorkflow(
       const duration = currentNode.data?.duration;
       const unit = currentNode.data?.unit;
 
-      const delayInMilliseconds =
-        getDelayInMilliseconds(duration, unit);
+      const delayInMilliseconds = getDelayInMilliseconds(duration, unit);
 
       if (delayInMilliseconds === null) {
         return {
@@ -189,11 +197,8 @@ export async function executeWorkflow(
         };
       }
 
-      console.log(
-        `Waiting ${duration} ${unit}...`,
-      );
-
-      await wait(delayInMilliseconds);
+      // Cap the wait so a "2 hours" delay doesn't freeze the demo.
+      await wait(Math.min(delayInMilliseconds, 1500));
 
       logs.push({
         nodeId: currentNode.id,
@@ -231,25 +236,20 @@ export async function executeWorkflow(
         currentNode.data?.field,
         currentNode.data?.operator,
         currentNode.data?.value,
+        sampleData,
       );
 
       if (conditionResult === null) {
         return {
           success: false,
           logs,
-          error: `Condition "${label}" has invalid settings.`,
+          error: `Condition "${label}" could not use "${String(
+            currentNode.data?.field,
+          )}" with the sample data. Check the field name and value.`,
         };
       }
 
-      const selectedHandle = conditionResult
-        ? "yes"
-        : "no";
-
-      console.log(
-        `Condition "${label}" evaluated to ${
-          conditionResult ? "YES" : "NO"
-        }`,
-      );
+      const selectedHandle = conditionResult ? "yes" : "no";
 
       const conditionEdge = edges.find(
         (edge) =>
@@ -266,16 +266,14 @@ export async function executeWorkflow(
       }
 
       const nextNode = nodes.find(
-        (node) =>
-          node.id === conditionEdge.target,
+        (node) => node.id === conditionEdge.target,
       );
 
       if (!nextNode) {
         return {
           success: false,
           logs,
-          error:
-            "Workflow contains an edge pointing to a missing node.",
+          error: "Workflow contains an edge pointing to a missing node.",
         };
       }
 
@@ -286,6 +284,10 @@ export async function executeWorkflow(
         status: "completed",
       });
 
+      // Highlight only the branch that was actually taken.
+      onEdgeTaken?.(conditionEdge.id);
+      await wait(300);
+
       currentNode = nextNode;
 
       continue;
@@ -295,8 +297,7 @@ export async function executeWorkflow(
      * Normal nodes have one outgoing edge.
      */
     const outgoingEdge = edges.find(
-      (edge) =>
-        edge.source === currentNode?.id,
+      (edge) => edge.source === currentNode?.id,
     );
 
     if (!outgoingEdge) {
@@ -308,18 +309,19 @@ export async function executeWorkflow(
     }
 
     const nextNode = nodes.find(
-      (node) =>
-        node.id === outgoingEdge.target,
+      (node) => node.id === outgoingEdge.target,
     );
 
     if (!nextNode) {
       return {
         success: false,
         logs,
-        error:
-          "Workflow contains an edge pointing to a missing node.",
+        error: "Workflow contains an edge pointing to a missing node.",
       };
     }
+
+    onEdgeTaken?.(outgoingEdge.id);
+    await wait(300);
 
     currentNode = nextNode;
   }
@@ -327,7 +329,6 @@ export async function executeWorkflow(
   return {
     success: false,
     logs,
-    error:
-      "Workflow execution stopped unexpectedly.",
+    error: "Workflow execution stopped unexpectedly.",
   };
 }
