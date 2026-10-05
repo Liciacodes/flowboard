@@ -9,6 +9,21 @@ type PropertiesPanelProps = {
   onClose: () => void;
 };
 
+const dotColors: Record<string, string> = {
+  trigger: "bg-amber-400",
+  action: "bg-sky-400",
+  condition: "bg-violet-400",
+  delay: "bg-slate-400",
+  end: "bg-emerald-400",
+};
+
+const fieldClass =
+  "mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600";
+
+const labelClass = "block text-xs text-neutral-400";
+
+const hintClass = "mt-1.5 text-[11px] leading-4 text-neutral-500";
+
 export default function PropertiesPanel({
   selectedNode,
   onLabelChange,
@@ -16,6 +31,8 @@ export default function PropertiesPanel({
   onDeleteNode,
   onClose,
 }: PropertiesPanelProps) {
+  const data = selectedNode.data;
+
   return (
     <motion.aside
       initial={{ x: 320, opacity: 0 }}
@@ -30,9 +47,17 @@ export default function PropertiesPanel({
             Properties
           </p>
 
-          <h2 className="mt-1 text-base font-medium capitalize text-white">
-            {selectedNode.type}
-          </h2>
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className={`h-2 w-2 rounded-full ${
+                dotColors[selectedNode.type ?? ""] ?? "bg-neutral-500"
+              }`}
+            />
+
+            <h2 className="text-base font-medium capitalize text-white">
+              {selectedNode.type}
+            </h2>
+          </div>
         </div>
 
         <button
@@ -47,46 +72,44 @@ export default function PropertiesPanel({
 
       <div className="space-y-5">
         <div>
-          <label className="block text-xs text-neutral-400">
-            Label
-          </label>
+          <label className={labelClass}>Label</label>
 
           <input
             type="text"
-            value={String(selectedNode.data.label)}
+            value={String(data.label ?? "")}
             onChange={(event) => onLabelChange(event.target.value)}
-            className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+            className={fieldClass}
           />
         </div>
 
         {selectedNode.type === "condition" && (
           <>
             <div>
-              <label className="block text-xs text-neutral-400">
-                Field
-              </label>
+              <label className={labelClass}>Field</label>
 
               <input
                 type="text"
-                value={String(selectedNode.data.field)}
+                value={String(data.field ?? "")}
                 onChange={(event) =>
                   onNodeDataChange("field", event.target.value)
                 }
-                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+                className={fieldClass}
               />
+
+              <p className={hintClass}>
+                The key to read from the sample data, for example status.
+              </p>
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400">
-                Operator
-              </label>
+              <label className={labelClass}>Operator</label>
 
               <select
-                value={String(selectedNode.data.operator)}
+                value={String(data.operator ?? "equals")}
                 onChange={(event) =>
                   onNodeDataChange("operator", event.target.value)
                 }
-                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+                className={fieldClass}
               >
                 <option value="equals">Equals</option>
                 <option value="not-equals">Does not equal</option>
@@ -97,17 +120,15 @@ export default function PropertiesPanel({
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400">
-                Value
-              </label>
+              <label className={labelClass}>Value</label>
 
               <input
                 type="text"
-                value={String(selectedNode.data.value)}
+                value={String(data.value ?? "")}
                 onChange={(event) =>
                   onNodeDataChange("value", event.target.value)
                 }
-                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+                className={fieldClass}
               />
             </div>
           </>
@@ -116,36 +137,38 @@ export default function PropertiesPanel({
         {selectedNode.type === "delay" && (
           <>
             <div>
-              <label className="block text-xs text-neutral-400">
-                Duration
-              </label>
+              <label className={labelClass}>Duration</label>
 
               <input
-                type="text"
-                value={String(selectedNode.data.duration)}
+                type="number"
+                min="0"
+                value={String(data.duration ?? "")}
                 onChange={(event) =>
                   onNodeDataChange("duration", event.target.value)
                 }
-                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+                className={fieldClass}
               />
             </div>
 
             <div>
-              <label className="block text-xs text-neutral-400">
-                Unit
-              </label>
+              <label className={labelClass}>Unit</label>
 
               <select
-                value={String(selectedNode.data.unit)}
+                value={String(data.unit ?? "seconds")}
                 onChange={(event) =>
                   onNodeDataChange("unit", event.target.value)
                 }
-                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-neutral-600"
+                className={fieldClass}
               >
+                <option value="seconds">Seconds</option>
                 <option value="minutes">Minutes</option>
                 <option value="hours">Hours</option>
                 <option value="days">Days</option>
               </select>
+
+              <p className={hintClass}>
+                Test runs shorten every delay to 1.5 seconds at most.
+              </p>
             </div>
           </>
         )}

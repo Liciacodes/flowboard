@@ -340,12 +340,15 @@ function FlowEditorCanvas() {
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      setValidationIssues(null);
-      setExecutionLogs([]);
-      setExecutionError(null);
-      setExecutionComplete(false);
-    }, 3000);
+    const timeoutId = setTimeout(
+      () => {
+        setValidationIssues(null);
+        setExecutionLogs([]);
+        setExecutionError(null);
+        setExecutionComplete(false);
+      },
+      runSucceeded ? 8000 : 3000,
+    );
 
     return () => clearTimeout(timeoutId);
   }, [
@@ -878,17 +881,25 @@ function FlowEditorCanvas() {
                   {executionLogs.map((log) => (
                     <li
                       key={log.nodeId}
-                      className="flex items-center gap-2 rounded-md bg-neutral-900 px-2 py-1 text-xs"
+                      className="rounded-md bg-neutral-900 px-2 py-1.5 text-xs"
                     >
-                      <span className="text-emerald-400">✓</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400">✓</span>
 
-                      <span className="min-w-0 flex-1 truncate text-neutral-200">
-                        {log.label}
-                      </span>
+                        <span className="min-w-0 flex-1 truncate text-neutral-200">
+                          {log.label}
+                        </span>
 
-                      <span className="text-[11px] text-neutral-500">
-                        {log.nodeType}
-                      </span>
+                        <span className="text-[11px] text-neutral-500">
+                          {log.nodeType}
+                        </span>
+                      </div>
+
+                      {log.detail && (
+                        <p className="mt-1 pl-5 leading-4 text-neutral-400">
+                          {log.detail}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

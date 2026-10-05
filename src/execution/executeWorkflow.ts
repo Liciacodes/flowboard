@@ -14,6 +14,7 @@ export type ExecutionLog = {
   nodeType: string;
   label: string;
   status: "completed" | "failed";
+  detail?: string;
 };
 
 export type ExecuteWorkflowResult = {
@@ -53,14 +54,26 @@ const getDelayInMilliseconds = (
   }
 };
 
-// Looks the field up in the sample data, then compares it to the expected value.
-// Returns null when the condition can't be evaluated (missing field, bad operator, bad numbers).
+const conditionPhrases: Record<string, [string, string]> = {
+  equals: ["equals", "does not equal"],
+  "not-equals": ["is different from", "is the same as"],
+  contains: ["contains", "does not contain"],
+  "greater-than": ["is greater than", "is not greater than"],
+  "less-than": ["is less than", "is not less than"],
+};
+
+type ConditionEvaluation = {
+  result: boolean;
+  actual: string;
+  expected: string;
+};
+
 const evaluateCondition = (
   field: string | undefined,
   operator: string | undefined,
   value: string | undefined,
   sampleData: Record<string, unknown>,
-) => {
+): ConditionEvaluation | null => {
   if (!field || !operator) {
     return null;
   }
@@ -71,38 +84,27 @@ const evaluateCondition = (
     return null;
   }
 
-  const actualValue = String(rawValue).trim();
-  const expectedValue = value?.trim() ?? "";
+  const actual = String(rawValue).trim();
+  const expected = value?.trim() ?? "";
 
   switch (operator) {
     case "equals":
-      return actualValue === expectedValue;
+      return { result: actual === expected, actual, expected };
 
     case "not-equals":
-      return actualValue !== expectedValue;
+      return { result: actual !== expected, actual, expected };
 
     case "contains":
-      return actualValue
-        .toLowerCase()
-        .includes(expectedValue.toLowerCase());
+      return {
+        result: actual.toLowerCase().includes(expected.toLowerCase()),
+        actual,
+        expected,
+      };
 
-    case "greater-than": {
-      const actualNumber = Number(actualValue);
-      const expectedNumber = Number(expectedValue);
-
-      if (
-        !Number.isFinite(actualNumber) ||
-        !Number.isFinite(expectedNumber)
-      ) {
-        return null;
-      }
-
-      return actualNumber > expectedNumber;
-    }
-
+    case "greater-than":
     case "less-than": {
-      const actualNumber = Number(actualValue);
-      const expectedNumber = Number(expectedValue);
+      const actualNumber = Number(actual);
+      const expectedNumber = Number(expected);
 
       if (
         !Number.isFinite(actualNumber) ||
@@ -111,7 +113,14 @@ const evaluateCondition = (
         return null;
       }
 
-      return actualNumber < expectedNumber;
+      return {
+        result:
+          operator === "greater-than"
+            ? actualNumber > expectedNumber
+            : actualNumber < expectedNumber,
+        actual,
+        expected,
+      };
     }
 
     default:
@@ -158,31 +167,23 @@ export async function executeWorkflow(
         ? currentNode.data.label
         : currentNode.type ?? "Unknown node";
 
-    // Tell the UI which node is running, then pause so the glow is visible.
     onNodeStart?.(currentNode.id);
     await wait(600);
 
-    // Trigger
-    if (currentNode.type === "trigger") {
+    const log = (detail?: string) => {
       logs.push({
-        nodeId: currentNode.id,
-        nodeType: currentNode.type,
+        nodeId: currentNode!.id,
+        nodeType: currentNode!.type ?? "unknown",
         label,
         status: "completed",
+        detail,
       });
+    };
+
+    if (currentNode.type === "trigger" || currentNode.type === "action") {
+      log();
     }
 
-    // Action
-    if (currentNode.type === "action") {
-      logs.push({
-        nodeId: currentNode.id,
-        nodeType: currentNode.type,
-        label,
-        status: "completed",
-      });
-    }
-
-    // Delay
     if (currentNode.type === "delay") {
       const duration = currentNode.data?.duration;
       const unit = currentNode.data?.unit;
@@ -197,25 +198,13 @@ export async function executeWorkflow(
         };
       }
 
-      // Cap the wait so a "2 hours" delay doesn't freeze the demo.
       await wait(Math.min(delayInMilliseconds, 1500));
 
-      logs.push({
-        nodeId: currentNode.id,
-        nodeType: currentNode.type,
-        label,
-        status: "completed",
-      });
+      log(`Waited ${duration} ${unit} (shortened for the demo).`);
     }
 
-    // End
     if (currentNode.type === "end") {
-      logs.push({
-        nodeId: currentNode.id,
-        nodeType: currentNode.type,
-        label,
-        status: "completed",
-      });
+      log("Workflow finished.");
 
       return {
         success: true,
@@ -223,33 +212,28 @@ export async function executeWorkflow(
       };
     }
 
-    /*
-     * Condition
-     *
-     * A condition has two possible outgoing edges:
-     *
-     * YES -> handle "yes"
-     * NO  -> handle "no"
-     */
     if (currentNode.type === "condition") {
-      const conditionResult = evaluateCondition(
-        currentNode.data?.field,
-        currentNode.data?.operator,
+      const field = currentNode.data?.field;
+      const operator = currentNode.data?.operator;
+
+      const evaluation = evaluateCondition(
+        field,
+        operator,
         currentNode.data?.value,
         sampleData,
       );
 
-      if (conditionResult === null) {
+      if (evaluation === null) {
         return {
           success: false,
           logs,
           error: `Condition "${label}" could not use "${String(
-            currentNode.data?.field,
+            field,
           )}" with the sample data. Check the field name and value.`,
         };
       }
 
-      const selectedHandle = conditionResult ? "yes" : "no";
+      const selectedHandle = evaluation.result ? "yes" : "no";
 
       const conditionEdge = edges.find(
         (edge) =>
@@ -277,14 +261,13 @@ export async function executeWorkflow(
         };
       }
 
-      logs.push({
-        nodeId: currentNode.id,
-        nodeType: currentNode.type,
-        label,
-        status: "completed",
-      });
+      const phrases = conditionPhrases[operator ?? ""] ?? ["matches", "does not match"];
+      const phrase = evaluation.result ? phrases[0] : phrases[1];
 
-      // Highlight only the branch that was actually taken.
+      log(
+        `${field} is "${evaluation.actual}", which ${phrase} "${evaluation.expected}". Took ${selectedHandle.toUpperCase()}.`,
+      );
+
       onEdgeTaken?.(conditionEdge.id);
       await wait(300);
 
@@ -293,9 +276,6 @@ export async function executeWorkflow(
       continue;
     }
 
-    /*
-     * Normal nodes have one outgoing edge.
-     */
     const outgoingEdge = edges.find(
       (edge) => edge.source === currentNode?.id,
     );
