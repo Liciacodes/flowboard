@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { ConditionNodeData } from "../../types/workflow";
-import NodeShell from "./Nodeshell";
+import NodeShell from "./NodeShell";
 
 const handleBase = "!h-[9px] !w-[9px] !border-2 !border-neutral-900";
 

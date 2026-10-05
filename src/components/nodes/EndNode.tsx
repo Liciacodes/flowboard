@@ -1,6 +1,6 @@
 import type { NodeProps } from "@xyflow/react";
 import type { EndNodeData } from "../../types/workflow";
-import NodeShell from "./Nodeshell";
+import NodeShell from "./NodeShell";
 
 export default function EndNode({ data }: NodeProps) {
   const nodeData = data as EndNodeData;

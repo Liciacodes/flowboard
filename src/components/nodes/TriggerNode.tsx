@@ -1,6 +1,6 @@
 import type { NodeProps } from "@xyflow/react";
 import type { TriggerNodeData } from "../../types/workflow";
-import NodeShell from "./Nodeshell";
+import NodeShell from "./NodeShell";
 
 export default function TriggerNode({ data }: NodeProps) {
   const nodeData = data as TriggerNodeData;

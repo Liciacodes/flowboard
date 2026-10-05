@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
+import { API_URL } from "../../config";
 
 type PreviewNode = {
   id: string;
@@ -148,7 +149,7 @@ export default function WorkflowsPage() {
     setLoadError(false);
 
     try {
-      const response = await fetch("http://localhost:5000/api/workflows");
+      const response = await fetch(`${API_URL}/api/workflows`);
 
       if (!response.ok) {
         throw new Error("Failed to load workflows");
@@ -181,7 +182,7 @@ export default function WorkflowsPage() {
     setIsCreating(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/workflows", {
+      const response = await fetch(`${API_URL}/api/workflows`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -220,12 +221,9 @@ export default function WorkflowsPage() {
     setDeletingWorkflowId(id);
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/workflows/${id}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await fetch(`${API_URL}/api/workflows/${id}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         throw new Error("Failed to delete workflow");
@@ -249,12 +247,9 @@ export default function WorkflowsPage() {
     setDuplicatingWorkflowId(id);
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/workflows/${id}/duplicate`,
-        {
-          method: "POST",
-        },
-      );
+      const response = await fetch(`${API_URL}/api/workflows/${id}/duplicate`, {
+        method: "POST",
+      });
 
       if (!response.ok) {
         throw new Error("Failed to duplicate workflow");
