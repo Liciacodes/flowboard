@@ -32,7 +32,7 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 ## How it works
 
 - `src/execution/executeWorkflow.ts` walks the graph from the Trigger, evaluates each Condition against the sample data, follows the matching branch and records a plain-language explanation for every step
-- Validation and execution use the same rules, so a broken workflow never runs
+- `src/execution/validateWorkflow.ts` checks the graph before every run, and a workflow with validation issues does not run
 - Running state is shown through display-only copies of the nodes and edges, so highlighting a node never marks the workflow as having unsaved changes
 - Delays are shortened to at most 1.5 seconds during test runs, so a demo does not wait for hours
 
@@ -42,15 +42,17 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 flowboard/
 ├── src/
 │   ├── components/
-│   │   ├── editor/       FlowEditor and PropertiesPanel
+│   │   ├── editor/       FlowEditor, its toolbar and panels, and the run and unsaved-changes hooks
 │   │   ├── nodes/        Node components built on a shared NodeShell
-│   │   └── workflows/    Dashboard page
+│   │   ├── workflows/    Dashboard page
+│   │   └── ConfirmDialog.tsx
 │   ├── data/             Demo workflow
-│   ├── execution/        Run engine
+│   ├── execution/        Validation and run engine, with their tests
 │   └── types/
-└── server/
-    ├── prisma/           Schema and migrations
-    └── src/server.ts     REST API
+├── server/
+│   ├── prisma/           Schema and migrations
+│   └── src/server.ts     REST API
+└── mcp-server/           MCP server that lets an AI assistant list, validate and run workflows
 ```
 
 ## Run it locally
@@ -84,6 +86,14 @@ npm run dev
 
 The frontend runs on `http://localhost:5173` and the API on `http://localhost:5000`. To point the frontend at a different API, set `VITE_API_URL`.
 
+## Tests
+
+```bash
+npm test
+```
+
+The validation and execution logic are covered by unit tests written with Vitest. `npm run lint` checks the code with ESLint.
+
 ## API
 
 | Method | Route | Description |
@@ -108,4 +118,3 @@ The frontend runs on `http://localhost:5173` and the API on `http://localhost:50
 - Undo and redo
 - JSON export and import
 - Workflow templates
-- Tests for the validation and execution logic
