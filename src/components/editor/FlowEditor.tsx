@@ -32,6 +32,7 @@ import {
 } from "../../execution/executeWorkflow";
 
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
+import { API_URL } from "../../config";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -363,7 +364,7 @@ function FlowEditorCanvas() {
     const loadWorkflow = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/workflows/${id}`,
+          `${API_URL}/api/workflows/${id}`,
         );
 
         if (!response.ok) {
@@ -400,7 +401,7 @@ function FlowEditorCanvas() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/workflows/${id}`,
+        `${API_URL}/api/workflows/${id}`,
         {
           method: "PATCH",
           headers: {
