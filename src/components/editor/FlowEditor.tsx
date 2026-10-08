@@ -15,7 +15,7 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import { useBlocker, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 
@@ -25,19 +25,14 @@ import ConditionNode from "../nodes/ConditionNode";
 import DelayNode from "../nodes/DelayNode";
 import EndNode from "../nodes/EndNode";
 import PropertiesPanel from "./PropertiesPanel";
-
-import {
-  executeWorkflow,
-  type ExecutionLog,
-} from "../../execution/executeWorkflow";
-
-import {
-  validateWorkflow,
-  type ValidationIssue,
-} from "../../execution/validateWorkflow";
+import EditorToolbar, { type SaveStatus } from "./EditorToolbar";
+import ResultsPanel from "./ResultsPanel";
+import { useUnsavedChanges, type WorkflowState } from "./useUnsavedChanges";
+import { useWorkflowRun } from "./useWorkflowRun";
 
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
+import type { WorkFlowNodeType } from "../../types/workflow";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -47,20 +42,32 @@ const nodeTypes = {
   end: EndNode,
 };
 
-const getWorkflowSnapshot = (
-  name: string,
-  workflowNodes: Node[],
-  workflowEdges: Edge[],
-) => ({
-  name,
-  nodes: workflowNodes.map(
-    ({ selected, dragging, measured, ...node }) => node,
-  ),
-  edges: workflowEdges.map(({ selected, ...edge }) => edge),
-});
+const defaultNodeData: Record<WorkFlowNodeType, Record<string, string>> = {
+  trigger: {
+    label: "New event",
+  },
 
-const toolbarButton =
-  "rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800";
+  action: {
+    label: "New action",
+  },
+
+  condition: {
+    label: "New condition",
+    field: "status",
+    operator: "equals",
+    value: "active",
+  },
+
+  delay: {
+    label: "New delay",
+    duration: "1",
+    unit: "hours",
+  },
+
+  end: {
+    label: "End workflow",
+  },
+};
 
 function FlowEditorCanvas() {
   const { id } = useParams();
@@ -70,59 +77,29 @@ function FlowEditorCanvas() {
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
-
-  const [validationIssues, setValidationIssues] = useState<
-    ValidationIssue[] | null
-  >(null);
+  const [isSampleDataOpen, setIsSampleDataOpen] = useState(false);
 
   const [workflowName, setWorkflowName] = useState("");
-
-  const [saveStatus, setSaveStatus] = useState<
-    "idle" | "saving" | "saved" | "error"
-  >("idle");
-
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoading, setIsLoading] = useState(true);
-
-  const [savedWorkflow, setSavedWorkflow] = useState<{
-    name: string;
-    nodes: Node[];
-    edges: Edge[];
-  } | null>(null);
-
-  const [isRunning, setIsRunning] = useState(false);
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [activeEdgeId, setActiveEdgeId] = useState<string | null>(null);
-  const [executionLogs, setExecutionLogs] = useState<ExecutionLog[]>([]);
-  const [executionError, setExecutionError] = useState<string | null>(null);
-  const [executionComplete, setExecutionComplete] = useState(false);
-
-  const [sampleDataText, setSampleDataText] = useState(
-    '{"status": "active"}',
+  const [savedWorkflow, setSavedWorkflow] = useState<WorkflowState | null>(
+    null,
   );
-  const [isSampleDataOpen, setIsSampleDataOpen] = useState(false);
 
   const { screenToFlowPosition, fitView } = useReactFlow();
 
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-
-  const currentWorkflowSnapshot = getWorkflowSnapshot(
-    workflowName,
-    nodes,
-    edges,
+  const hasUnsavedChanges = useUnsavedChanges(
+    { name: workflowName, nodes, edges },
+    savedWorkflow,
   );
 
-  const savedWorkflowSnapshot = savedWorkflow
-    ? getWorkflowSnapshot(
-        savedWorkflow.name,
-        savedWorkflow.nodes,
-        savedWorkflow.edges,
-      )
-    : null;
+  const workflowRun = useWorkflowRun(nodes, edges, () =>
+    setIsSampleDataOpen(true),
+  );
 
-  const hasUnsavedChanges =
-    savedWorkflowSnapshot !== null &&
-    JSON.stringify(currentWorkflowSnapshot) !==
-      JSON.stringify(savedWorkflowSnapshot);
+  const { isRunning, activeNodeId, activeEdgeId } = workflowRun;
+
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
   const displayNodes = useMemo(
     () =>
@@ -151,83 +128,10 @@ function FlowEditorCanvas() {
     setEdges((currentEdges) => addEdge(connection, currentEdges));
   };
 
-  const blocker = useBlocker(hasUnsavedChanges);
-
-  useEffect(() => {
-    if (blocker.state !== "blocked") {
-      return;
-    }
-
-    const shouldLeave = window.confirm(
-      "You have unsaved changes. Are you sure you want to leave?",
-    );
-
-    if (shouldLeave) {
-      blocker.proceed();
-    } else {
-      blocker.reset();
-    }
-  }, [blocker]);
-
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!hasUnsavedChanges) {
-        return;
-      }
-
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
-
-  useEffect(() => {
-    if (isRunning) {
-      return;
-    }
-
-    const runSucceeded = executionComplete && executionError === null;
-
-    const validationPassedOnly =
-      validationIssues !== null &&
-      validationIssues.length === 0 &&
-      executionLogs.length === 0 &&
-      executionError === null;
-
-    if (!runSucceeded && !validationPassedOnly) {
-      return;
-    }
-
-    const timeoutId = setTimeout(
-      () => {
-        setValidationIssues(null);
-        setExecutionLogs([]);
-        setExecutionError(null);
-        setExecutionComplete(false);
-      },
-      runSucceeded ? 8000 : 3000,
-    );
-
-    return () => clearTimeout(timeoutId);
-  }, [
-    isRunning,
-    executionComplete,
-    executionError,
-    executionLogs,
-    validationIssues,
-  ]);
-
   useEffect(() => {
     const loadWorkflow = async () => {
       try {
-        const response = await fetch(
-          `${API_URL}/api/workflows/${id}`,
-        );
+        const response = await fetch(`${API_URL}/api/workflows/${id}`);
 
         if (!response.ok) {
           throw new Error("Failed to load workflow");
@@ -262,21 +166,18 @@ function FlowEditorCanvas() {
     setSaveStatus("saving");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/workflows/${id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: workflowName,
-            nodes,
-            edges,
-            status: "draft",
-          }),
+      const response = await fetch(`${API_URL}/api/workflows/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          name: workflowName,
+          nodes,
+          edges,
+          status: "draft",
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to save workflow");
@@ -300,21 +201,6 @@ function FlowEditorCanvas() {
     }
   };
 
-  const handleValidateWorkflow = () => {
-    setValidationIssues(validateWorkflow(nodes, edges));
-  };
-
-  const handleCloseResults = () => {
-    if (isRunning) {
-      return;
-    }
-
-    setValidationIssues(null);
-    setExecutionLogs([]);
-    setExecutionError(null);
-    setExecutionComplete(false);
-  };
-
   const handleLoadDemo = () => {
     if (isRunning) {
       return;
@@ -330,114 +216,10 @@ function FlowEditorCanvas() {
     setNodes(demoNodes);
     setEdges(demoEdges);
     setSelectedNodeId(null);
-    setValidationIssues(null);
-    setExecutionLogs([]);
-    setExecutionError(null);
-    setExecutionComplete(false);
+    workflowRun.clearResults();
     setIsNodeMenuOpen(false);
 
     setTimeout(() => fitView({ padding: 0.35, duration: 400 }), 50);
-  };
-
-  const handleNodeStart = (nodeId: string) => {
-    setActiveNodeId(nodeId);
-    setActiveEdgeId(null);
-  };
-
-  const handleRunWorkflow = async () => {
-    if (isRunning) {
-      return;
-    }
-
-    setExecutionLogs([]);
-    setExecutionError(null);
-    setExecutionComplete(false);
-
-    const issues = validateWorkflow(nodes, edges);
-
-    setValidationIssues(issues);
-
-    if (issues.length > 0) {
-      setExecutionError(
-        "Workflow cannot run because it has validation issues.",
-      );
-
-      return;
-    }
-
-    let sampleData: Record<string, unknown>;
-
-    try {
-      const parsed = JSON.parse(sampleDataText);
-
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        Array.isArray(parsed)
-      ) {
-        throw new Error("Sample data must be an object");
-      }
-
-      sampleData = parsed;
-    } catch {
-      setExecutionError(
-        'Sample data must be a valid JSON object, for example {"status": "active"}.',
-      );
-      setIsSampleDataOpen(true);
-      return;
-    }
-
-    setIsRunning(true);
-
-    try {
-      const result = await executeWorkflow(
-        nodes,
-        edges,
-        handleNodeStart,
-        sampleData,
-        setActiveEdgeId,
-      );
-
-      setExecutionLogs(result.logs);
-
-      if (!result.success) {
-        setExecutionError(
-          result.error ?? "Workflow execution failed.",
-        );
-
-        return;
-      }
-
-      setExecutionComplete(true);
-    } catch (error) {
-      console.error("Workflow execution failed:", error);
-
-      setExecutionError(
-        "An unexpected error occurred while running the workflow.",
-      );
-    } finally {
-      setIsRunning(false);
-      setActiveNodeId(null);
-      setActiveEdgeId(null);
-    }
-  };
-
-  const handleLabelChange = (label: string) => {
-    if (!selectedNodeId) return;
-
-    setNodes((currentNodes) =>
-      currentNodes.map((node) =>
-        node.id === selectedNodeId
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                label,
-              },
-            }
-          : node,
-      ),
-    );
   };
 
   const handleNodeDataChange = (key: string, value: string) => {
@@ -458,46 +240,17 @@ function FlowEditorCanvas() {
     );
   };
 
-  const addNode = (
-    type: "trigger" | "action" | "condition" | "delay" | "end",
-  ) => {
+  const addNode = (type: WorkFlowNodeType) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
     });
 
-    const nodeData = {
-      trigger: {
-        label: "New event",
-      },
-
-      action: {
-        label: "New action",
-      },
-
-      condition: {
-        label: "New condition",
-        field: "status",
-        operator: "equals",
-        value: "active",
-      },
-
-      delay: {
-        label: "New delay",
-        duration: "1",
-        unit: "hours",
-      },
-
-      end: {
-        label: "End workflow",
-      },
-    };
-
     const newNode: Node = {
       id: crypto.randomUUID(),
       type,
       position,
-      data: nodeData[type],
+      data: defaultNodeData[type],
     };
 
     setNodes((currentNodes) => [...currentNodes, newNode]);
@@ -529,13 +282,6 @@ function FlowEditorCanvas() {
       </div>
     );
   }
-
-  const hasResults =
-    validationIssues !== null ||
-    isRunning ||
-    executionLogs.length > 0 ||
-    executionError !== null ||
-    executionComplete;
 
   return (
     <div className="flow-editor">
@@ -570,215 +316,41 @@ function FlowEditorCanvas() {
         <Controls />
       </ReactFlow>
 
-      <div className="absolute left-4 top-4 z-10">
-        <input
-          type="text"
-          value={workflowName}
-          onChange={(event) => setWorkflowName(event.target.value)}
-          placeholder="Workflow name"
-          className="mb-3 w-64 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white outline-none"
+      <EditorToolbar
+        workflowName={workflowName}
+        onWorkflowNameChange={setWorkflowName}
+        isNodeMenuOpen={isNodeMenuOpen}
+        onToggleNodeMenu={() => setIsNodeMenuOpen((open) => !open)}
+        onAddNode={addNode}
+        onValidate={workflowRun.validate}
+        onRun={workflowRun.run}
+        isRunning={isRunning}
+        onLoadDemo={handleLoadDemo}
+        isSampleDataOpen={isSampleDataOpen}
+        onToggleSampleData={() => setIsSampleDataOpen((open) => !open)}
+        sampleDataText={workflowRun.sampleDataText}
+        onSampleDataChange={workflowRun.setSampleDataText}
+        hasUnsavedChanges={hasUnsavedChanges}
+        saveStatus={saveStatus}
+        onSave={handleSaveWorkflow}
+      />
+
+      {workflowRun.hasResults && (
+        <ResultsPanel
+          validationIssues={workflowRun.validationIssues}
+          isRunning={isRunning}
+          executionLogs={workflowRun.executionLogs}
+          executionError={workflowRun.executionError}
+          executionComplete={workflowRun.executionComplete}
+          onClose={workflowRun.clearResults}
         />
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setIsNodeMenuOpen((open) => !open)}
-            className={toolbarButton}
-          >
-            + Add node
-          </button>
-
-          <button onClick={handleValidateWorkflow} className={toolbarButton}>
-            Validate workflow
-          </button>
-
-          <button
-            onClick={handleRunWorkflow}
-            disabled={isRunning}
-            className="rounded-lg border border-emerald-800 bg-emerald-950 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isRunning ? "Running..." : "▶ Run workflow"}
-          </button>
-
-          <button onClick={handleLoadDemo} className={toolbarButton}>
-            Load demo
-          </button>
-
-          <button
-            onClick={() => setIsSampleDataOpen((open) => !open)}
-            className={toolbarButton}
-          >
-            {isSampleDataOpen ? "Hide sample data" : "Sample data"}
-          </button>
-
-          {hasUnsavedChanges && (
-            <span className="flex items-center px-2 text-xs text-amber-400">
-              Unsaved changes
-            </span>
-          )}
-
-          <button
-            onClick={handleSaveWorkflow}
-            disabled={saveStatus === "saving" || !hasUnsavedChanges}
-            className={`${toolbarButton} disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            {saveStatus === "saving"
-              ? "Saving..."
-              : saveStatus === "saved"
-                ? "✓ Saved"
-                : saveStatus === "error"
-                  ? "Save failed"
-                  : "Save workflow"}
-          </button>
-        </div>
-
-        {isSampleDataOpen && (
-          <div className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-xl">
-            <label className="block text-xs text-neutral-400">
-              Sample data (JSON)
-            </label>
-
-            <textarea
-              value={sampleDataText}
-              onChange={(event) => setSampleDataText(event.target.value)}
-              rows={3}
-              spellCheck={false}
-              className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-900 p-2 font-mono text-xs text-white outline-none focus:border-neutral-500"
-            />
-
-            <p className="mt-1 text-[11px] text-neutral-500">
-              Conditions read their field from this data.
-            </p>
-          </div>
-        )}
-
-        {isNodeMenuOpen && (
-          <div className="mt-2 w-44 rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-xl">
-            {(
-              ["trigger", "action", "condition", "delay", "end"] as const
-            ).map((type) => (
-              <button
-                key={type}
-                onClick={() => addNode(type)}
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm capitalize text-neutral-200 hover:bg-neutral-900"
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {hasResults && (
-        <div className="absolute bottom-4 left-16 z-10 max-h-[40vh] w-80 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-sm text-white shadow-xl backdrop-blur">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
-              Results
-            </p>
-
-            <button
-              onClick={handleCloseResults}
-              disabled={isRunning}
-              aria-label="Close results"
-              className="rounded px-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ✕
-            </button>
-          </div>
-
-          {validationIssues !== null && (
-            <div className="mb-2">
-              {validationIssues.length === 0 ? (
-                <p className="flex items-center gap-2 text-xs text-emerald-400">
-                  <span>✓</span>
-                  Workflow is ready. All checks passed.
-                </p>
-              ) : (
-                <>
-                  <p className="mb-1 flex items-center gap-2 text-xs font-medium text-red-400">
-                    <span>!</span>
-                    {validationIssues.length}{" "}
-                    {validationIssues.length === 1 ? "issue" : "issues"} found
-                  </p>
-
-                  <ul className="space-y-1">
-                    {validationIssues.map((issue, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-2 text-xs leading-5 text-neutral-300"
-                      >
-                        <span className="text-red-400">•</span>
-                        {issue.message}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          )}
-
-          {(isRunning ||
-            executionLogs.length > 0 ||
-            executionError ||
-            executionComplete) && (
-            <div className="border-t border-neutral-800 pt-2">
-              <div className="mb-1 flex items-center justify-between">
-                <p className="text-xs font-medium text-neutral-200">
-                  Execution
-                </p>
-
-                {isRunning && (
-                  <span className="text-xs text-amber-400">Running...</span>
-                )}
-
-                {executionComplete && (
-                  <span className="text-xs text-emerald-400">Completed</span>
-                )}
-              </div>
-
-              {executionLogs.length > 0 && (
-                <ul className="space-y-1">
-                  {executionLogs.map((log) => (
-                    <li
-                      key={log.nodeId}
-                      className="rounded-md bg-neutral-900 px-2 py-1.5 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-emerald-400">✓</span>
-
-                        <span className="min-w-0 flex-1 truncate text-neutral-200">
-                          {log.label}
-                        </span>
-
-                        <span className="text-[11px] text-neutral-500">
-                          {log.nodeType}
-                        </span>
-                      </div>
-
-                      {log.detail && (
-                        <p className="mt-1 pl-5 leading-4 text-neutral-400">
-                          {log.detail}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {executionError && (
-                <div className="mt-2 rounded-md border border-red-900/50 bg-red-950/30 p-2 text-xs text-red-300">
-                  {executionError}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       )}
 
       <AnimatePresence>
         {selectedNode && (
           <PropertiesPanel
             selectedNode={selectedNode}
-            onLabelChange={handleLabelChange}
+            onLabelChange={(label) => handleNodeDataChange("label", label)}
             onNodeDataChange={handleNodeDataChange}
             onDeleteNode={deleteSelectedNode}
             onClose={() => setSelectedNodeId(null)}
