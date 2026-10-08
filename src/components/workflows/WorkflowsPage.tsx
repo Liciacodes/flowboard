@@ -41,6 +41,48 @@ const PREVIEW_WIDTH = 240;
 const PREVIEW_HEIGHT = 110;
 const PREVIEW_PADDING = 16;
 
+const fetchWorkflows = async (): Promise<Workflow[]> => {
+  const response = await fetch(`${API_URL}/api/workflows`);
+
+  if (!response.ok) {
+    throw new Error("Failed to load workflows");
+  }
+
+  const data = await response.json();
+
+  return data.workflows;
+};
+
+const formatUpdatedTime = (dateString: string, now: number) => {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  const seconds = Math.round((date.getTime() - now) / 1000);
+  const absSeconds = Math.abs(seconds);
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+  if (absSeconds < 60) {
+    return "just now";
+  }
+
+  if (absSeconds < 3600) {
+    return formatter.format(Math.round(seconds / 60), "minute");
+  }
+
+  if (absSeconds < 86400) {
+    return formatter.format(Math.round(seconds / 3600), "hour");
+  }
+
+  if (absSeconds < 86400 * 30) {
+    return formatter.format(Math.round(seconds / 86400), "day");
+  }
+
+  return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
+};
+
 function WorkflowPreview({
   nodes,
   edges,
@@ -141,34 +183,48 @@ export default function WorkflowsPage() {
     string | null
   >(null);
   const [query, setQuery] = useState("");
+  const [now, setNow] = useState(() => Date.now());
 
   const navigate = useNavigate();
 
-  const loadWorkflows = async () => {
-    setIsLoading(true);
-    setLoadError(false);
-
-    try {
-      const response = await fetch(`${API_URL}/api/workflows`);
-
-      if (!response.ok) {
-        throw new Error("Failed to load workflows");
-      }
-
-      const data = await response.json();
-
-      setWorkflows(data.workflows);
-    } catch (error) {
-      console.error("Error loading workflows:", error);
-      setLoadError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
-    loadWorkflows();
-  }, []);
+    let cancelled = false;
+
+    fetchWorkflows()
+      .then((loadedWorkflows) => {
+        if (cancelled) {
+          return;
+        }
+
+        setWorkflows(loadedWorkflows);
+        setNow(Date.now());
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+
+        console.error("Error loading workflows:", error);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAttempt]);
+
+  const handleRetry = () => {
+    setIsLoading(true);
+    setLoadError(false);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
 
   const createWorkflow = async (
     name: string,
@@ -266,36 +322,6 @@ export default function WorkflowsPage() {
     } finally {
       setDuplicatingWorkflowId(null);
     }
-  };
-
-  const formatUpdatedTime = (dateString: string) => {
-    const date = new Date(dateString);
-
-    if (Number.isNaN(date.getTime())) {
-      return "Unknown";
-    }
-
-    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
-    const absSeconds = Math.abs(seconds);
-    const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-
-    if (absSeconds < 60) {
-      return "just now";
-    }
-
-    if (absSeconds < 3600) {
-      return formatter.format(Math.round(seconds / 60), "minute");
-    }
-
-    if (absSeconds < 86400) {
-      return formatter.format(Math.round(seconds / 3600), "hour");
-    }
-
-    if (absSeconds < 86400 * 30) {
-      return formatter.format(Math.round(seconds / 86400), "day");
-    }
-
-    return new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(date);
   };
 
   const filteredWorkflows = useMemo(
@@ -407,7 +433,7 @@ export default function WorkflowsPage() {
             </p>
 
             <button
-              onClick={loadWorkflows}
+              onClick={handleRetry}
               className="mt-5 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
             >
               Try again
@@ -494,7 +520,7 @@ export default function WorkflowsPage() {
 
                     <p className="mt-1.5 text-xs text-neutral-500">
                       {nodeCount} {nodeCount === 1 ? "node" : "nodes"} ·
-                      Updated {formatUpdatedTime(workflow.updatedAt)}
+                      Updated {formatUpdatedTime(workflow.updatedAt, now)}
                     </p>
                   </Link>
 

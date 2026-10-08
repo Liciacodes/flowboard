@@ -282,10 +282,6 @@ function FlowEditorCanvas() {
         throw new Error("Failed to save workflow");
       }
 
-      const data = await response.json();
-
-      console.log("Workflow saved:", data);
-
       setSavedWorkflow({
         name: workflowName,
         nodes,

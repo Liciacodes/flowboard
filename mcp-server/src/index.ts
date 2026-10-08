@@ -5,6 +5,14 @@ import { run, toFlowboard, validate } from "./workflow.js";
 
 const API_URL = process.env.FLOWBOARD_API_URL ?? "http://localhost:5000";
 
+type SavedWorkflow = {
+  id: string;
+  name: string;
+  status: string;
+  nodes: unknown;
+  updatedAt: string;
+};
+
 async function api(path: string, body?: unknown) {
   const response = await fetch(`${API_URL}${path}`, {
     method: body === undefined ? "GET" : "POST",
@@ -51,7 +59,7 @@ server.registerTool(
     try {
       const data = await api("/api/workflows");
 
-      const workflows = data.workflows.map((workflow: any) => ({
+      const workflows = data.workflows.map((workflow: SavedWorkflow) => ({
         id: workflow.id,
         name: workflow.name,
         status: workflow.status,

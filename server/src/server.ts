@@ -143,7 +143,7 @@ app.delete("/api/workflows/:id", async (req, res) => {
       workflow,
     });
   } catch (error) {
-    console.error("Failed to delete workflow");
+    console.error("Failed to delete workflow", error);
 
     res.status(500).json({
       message: 'Failed to delete workflow'
