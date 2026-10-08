@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
+import ConfirmDialog from "../ConfirmDialog";
 
 type PreviewNode = {
   id: string;
@@ -182,6 +183,9 @@ export default function WorkflowsPage() {
   const [duplicatingWorkflowId, setDuplicatingWorkflowId] = useState<
     string | null
   >(null);
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow | null>(
+    null,
+  );
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(() => Date.now());
 
@@ -265,15 +269,14 @@ export default function WorkflowsPage() {
   const handleCreateDemo = () =>
     createWorkflow("Customer Onboarding", demoNodes, demoEdges);
 
-  const handleDeleteWorkflow = async (id: string) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this workflow?",
-    );
-
-    if (!confirmed) {
+  const handleDeleteWorkflow = async () => {
+    if (!workflowToDelete) {
       return;
     }
 
+    const { id } = workflowToDelete;
+
+    setWorkflowToDelete(null);
     setDeletingWorkflowId(id);
 
     try {
@@ -541,7 +544,7 @@ export default function WorkflowsPage() {
                     </button>
 
                     <button
-                      onClick={() => handleDeleteWorkflow(workflow.id)}
+                      onClick={() => setWorkflowToDelete(workflow)}
                       disabled={isBusy}
                       className="ml-auto rounded-lg px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -554,6 +557,16 @@ export default function WorkflowsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={workflowToDelete !== null}
+        title="Delete this workflow?"
+        message={`"${workflowToDelete?.name ?? ""}" will be permanently deleted.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={handleDeleteWorkflow}
+        onCancel={() => setWorkflowToDelete(null)}
+      />
     </main>
   );
 }

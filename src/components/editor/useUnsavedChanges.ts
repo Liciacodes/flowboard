@@ -26,22 +26,6 @@ export function useUnsavedChanges(
   const blocker = useBlocker(hasUnsavedChanges);
 
   useEffect(() => {
-    if (blocker.state !== "blocked") {
-      return;
-    }
-
-    const shouldLeave = window.confirm(
-      "You have unsaved changes. Are you sure you want to leave?",
-    );
-
-    if (shouldLeave) {
-      blocker.proceed();
-    } else {
-      blocker.reset();
-    }
-  }, [blocker]);
-
-  useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!hasUnsavedChanges) {
         return;
@@ -58,5 +42,5 @@ export function useUnsavedChanges(
     };
   }, [hasUnsavedChanges]);
 
-  return hasUnsavedChanges;
+  return { hasUnsavedChanges, blocker };
 }

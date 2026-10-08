@@ -15,7 +15,7 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 
@@ -24,6 +24,7 @@ import ActionNode from "../nodes/ActionNode";
 import ConditionNode from "../nodes/ConditionNode";
 import DelayNode from "../nodes/DelayNode";
 import EndNode from "../nodes/EndNode";
+import ConfirmDialog from "../ConfirmDialog";
 import PropertiesPanel from "./PropertiesPanel";
 import EditorToolbar, { type SaveStatus } from "./EditorToolbar";
 import ResultsPanel from "./ResultsPanel";
@@ -82,13 +83,17 @@ function FlowEditorCanvas() {
   const [workflowName, setWorkflowName] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [savedWorkflow, setSavedWorkflow] = useState<WorkflowState | null>(
     null,
   );
 
+  const [isDemoConfirmOpen, setIsDemoConfirmOpen] = useState(false);
+
   const { screenToFlowPosition, fitView } = useReactFlow();
 
-  const hasUnsavedChanges = useUnsavedChanges(
+  const { hasUnsavedChanges, blocker } = useUnsavedChanges(
     { name: workflowName, nodes, edges },
     savedWorkflow,
   );
@@ -150,13 +155,45 @@ function FlowEditorCanvas() {
         });
       } catch (error) {
         console.error("Error loading workflow:", error);
+        setLoadError(true);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadWorkflow();
-  }, [id, setNodes, setEdges]);
+  }, [id, loadAttempt, setNodes, setEdges]);
+
+  const handleRetryLoad = () => {
+    setIsLoading(true);
+    setLoadError(false);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
+
+  const isLeaveConfirmOpen = blocker.state === "blocked";
+  const isDialogOpen = isLeaveConfirmOpen || isDemoConfirmOpen;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || isDialogOpen) {
+        return;
+      }
+
+      if (isNodeMenuOpen) {
+        setIsNodeMenuOpen(false);
+      } else if (isSampleDataOpen) {
+        setIsSampleDataOpen(false);
+      } else {
+        setSelectedNodeId(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDialogOpen, isNodeMenuOpen, isSampleDataOpen]);
 
   const handleSaveWorkflow = async () => {
     if (!hasUnsavedChanges || saveStatus === "saving") {
@@ -206,13 +243,16 @@ function FlowEditorCanvas() {
       return;
     }
 
-    if (
-      nodes.length > 0 &&
-      !window.confirm("Replace the current canvas with the demo workflow?")
-    ) {
+    if (nodes.length > 0) {
+      setIsDemoConfirmOpen(true);
       return;
     }
 
+    loadDemo();
+  };
+
+  const loadDemo = () => {
+    setIsDemoConfirmOpen(false);
     setNodes(demoNodes);
     setEdges(demoEdges);
     setSelectedNodeId(null);
@@ -283,6 +323,36 @@ function FlowEditorCanvas() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-neutral-950 px-6 text-white">
+        <div className="max-w-md rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center">
+          <h1 className="font-medium">Couldn't load this workflow</h1>
+
+          <p className="mt-2 text-sm text-neutral-400">
+            It may have been deleted, or Flowboard could not be reached.
+          </p>
+
+          <div className="mt-5 flex justify-center gap-2">
+            <button
+              onClick={handleRetryLoad}
+              className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
+            >
+              Try again
+            </button>
+
+            <Link
+              to="/"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
+            >
+              Back to workflows
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flow-editor">
       <ReactFlow
@@ -335,16 +405,18 @@ function FlowEditorCanvas() {
         onSave={handleSaveWorkflow}
       />
 
-      {workflowRun.hasResults && (
-        <ResultsPanel
-          validationIssues={workflowRun.validationIssues}
-          isRunning={isRunning}
-          executionLogs={workflowRun.executionLogs}
-          executionError={workflowRun.executionError}
-          executionComplete={workflowRun.executionComplete}
-          onClose={workflowRun.clearResults}
-        />
-      )}
+      <div aria-live="polite">
+        {workflowRun.hasResults && (
+          <ResultsPanel
+            validationIssues={workflowRun.validationIssues}
+            isRunning={isRunning}
+            executionLogs={workflowRun.executionLogs}
+            executionError={workflowRun.executionError}
+            executionComplete={workflowRun.executionComplete}
+            onClose={workflowRun.clearResults}
+          />
+        )}
+      </div>
 
       <AnimatePresence>
         {selectedNode && (
@@ -357,6 +429,25 @@ function FlowEditorCanvas() {
           />
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={isLeaveConfirmOpen}
+        title="Leave without saving?"
+        message="You have unsaved changes. If you leave now, they will be lost."
+        confirmLabel="Leave"
+        danger
+        onConfirm={() => blocker.proceed?.()}
+        onCancel={() => blocker.reset?.()}
+      />
+
+      <ConfirmDialog
+        open={isDemoConfirmOpen}
+        title="Load the demo workflow?"
+        message="This replaces everything on the current canvas."
+        confirmLabel="Replace canvas"
+        onConfirm={loadDemo}
+        onCancel={() => setIsDemoConfirmOpen(false)}
+      />
     </div>
   );
 }

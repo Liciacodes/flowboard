@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import type { WorkFlowNodeType } from "../../types/workflow";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -57,6 +59,10 @@ export default function EditorToolbar({
   saveStatus,
   onSave,
 }: EditorToolbarProps) {
+  const nodeMenuId = useId();
+  const sampleDataId = useId();
+  const sampleDataInputId = useId();
+
   return (
     <div className="absolute left-4 top-4 z-10">
       <input
@@ -64,11 +70,17 @@ export default function EditorToolbar({
         value={workflowName}
         onChange={(event) => onWorkflowNameChange(event.target.value)}
         placeholder="Workflow name"
+        aria-label="Workflow name"
         className="mb-3 w-64 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-white outline-none"
       />
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={onToggleNodeMenu} className={toolbarButton}>
+        <button
+          onClick={onToggleNodeMenu}
+          aria-expanded={isNodeMenuOpen}
+          aria-controls={nodeMenuId}
+          className={toolbarButton}
+        >
           + Add node
         </button>
 
@@ -88,7 +100,12 @@ export default function EditorToolbar({
           Load demo
         </button>
 
-        <button onClick={onToggleSampleData} className={toolbarButton}>
+        <button
+          onClick={onToggleSampleData}
+          aria-expanded={isSampleDataOpen}
+          aria-controls={sampleDataId}
+          className={toolbarButton}
+        >
           {isSampleDataOpen ? "Hide sample data" : "Sample data"}
         </button>
 
@@ -108,12 +125,19 @@ export default function EditorToolbar({
       </div>
 
       {isSampleDataOpen && (
-        <div className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-xl">
-          <label className="block text-xs text-neutral-400">
+        <div
+          id={sampleDataId}
+          className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-xl"
+        >
+          <label
+            htmlFor={sampleDataInputId}
+            className="block text-xs text-neutral-400"
+          >
             Sample data (JSON)
           </label>
 
           <textarea
+            id={sampleDataInputId}
             value={sampleDataText}
             onChange={(event) => onSampleDataChange(event.target.value)}
             rows={3}
@@ -128,7 +152,10 @@ export default function EditorToolbar({
       )}
 
       {isNodeMenuOpen && (
-        <div className="mt-2 w-44 rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-xl">
+        <div
+          id={nodeMenuId}
+          className="mt-2 w-44 rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-xl"
+        >
           {nodeTypeOptions.map((type) => (
             <button
               key={type}

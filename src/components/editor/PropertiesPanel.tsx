@@ -1,4 +1,5 @@
 import type { Node } from "@xyflow/react";
+import { useId } from "react";
 import { motion } from "motion/react";
 
 type PropertiesPanelProps = {
@@ -31,6 +32,7 @@ export default function PropertiesPanel({
   onDeleteNode,
   onClose,
 }: PropertiesPanelProps) {
+  const id = useId();
   const data = selectedNode.data;
 
   return (
@@ -39,6 +41,7 @@ export default function PropertiesPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 320, opacity: 0 }}
       transition={{ duration: 0.2 }}
+      aria-label="Node properties"
       className="absolute right-0 top-0 z-10 h-full w-72 border-l border-neutral-800 bg-neutral-950 p-5 text-white"
     >
       <div className="mb-6 flex items-start justify-between">
@@ -72,9 +75,12 @@ export default function PropertiesPanel({
 
       <div className="space-y-5">
         <div>
-          <label className={labelClass}>Label</label>
+          <label htmlFor={`${id}-label`} className={labelClass}>
+            Label
+          </label>
 
           <input
+            id={`${id}-label`}
             type="text"
             value={String(data.label ?? "")}
             onChange={(event) => onLabelChange(event.target.value)}
@@ -85,9 +91,12 @@ export default function PropertiesPanel({
         {selectedNode.type === "condition" && (
           <>
             <div>
-              <label className={labelClass}>Field</label>
+              <label htmlFor={`${id}-field`} className={labelClass}>
+                Field
+              </label>
 
               <input
+                id={`${id}-field`}
                 type="text"
                 value={String(data.field ?? "")}
                 onChange={(event) =>
@@ -102,9 +111,12 @@ export default function PropertiesPanel({
             </div>
 
             <div>
-              <label className={labelClass}>Operator</label>
+              <label htmlFor={`${id}-operator`} className={labelClass}>
+                Operator
+              </label>
 
               <select
+                id={`${id}-operator`}
                 value={String(data.operator ?? "equals")}
                 onChange={(event) =>
                   onNodeDataChange("operator", event.target.value)
@@ -120,9 +132,12 @@ export default function PropertiesPanel({
             </div>
 
             <div>
-              <label className={labelClass}>Value</label>
+              <label htmlFor={`${id}-value`} className={labelClass}>
+                Value
+              </label>
 
               <input
+                id={`${id}-value`}
                 type="text"
                 value={String(data.value ?? "")}
                 onChange={(event) =>
@@ -137,9 +152,12 @@ export default function PropertiesPanel({
         {selectedNode.type === "delay" && (
           <>
             <div>
-              <label className={labelClass}>Duration</label>
+              <label htmlFor={`${id}-duration`} className={labelClass}>
+                Duration
+              </label>
 
               <input
+                id={`${id}-duration`}
                 type="number"
                 min="0"
                 value={String(data.duration ?? "")}
@@ -151,9 +169,12 @@ export default function PropertiesPanel({
             </div>
 
             <div>
-              <label className={labelClass}>Unit</label>
+              <label htmlFor={`${id}-unit`} className={labelClass}>
+                Unit
+              </label>
 
               <select
+                id={`${id}-unit`}
                 value={String(data.unit ?? "seconds")}
                 onChange={(event) =>
                   onNodeDataChange("unit", event.target.value)
@@ -182,5 +203,5 @@ export default function PropertiesPanel({
         </button>
       </div>
     </motion.aside>
-  );
+  )
 }
