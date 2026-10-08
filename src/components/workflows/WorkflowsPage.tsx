@@ -4,6 +4,7 @@ import { demoNodes, demoEdges } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
 import { getWorkflowPath } from "../../workflowUrl";
 import ConfirmDialog from "../ConfirmDialog";
+import GenerateWorkflowBox from "./GenerateWorkflowBox";
 
 type PreviewNode = {
   id: string;
@@ -383,6 +384,8 @@ export default function WorkflowsPage() {
             </button>
           </div>
         </div>
+
+        <GenerateWorkflowBox />
 
         {!isLoading && !loadError && workflows.length > 0 && (
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

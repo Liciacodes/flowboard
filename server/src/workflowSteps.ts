@@ -1,5 +1,5 @@
-// validate and toFlowboard are also in server/src/workflowSteps.ts, for the
-// AI box. Keep the two in step.
+// The simple step-and-link format an AI writes, with its checks and layout.
+// Kept in step with mcp-server/src/workflow.ts, which holds the same logic.
 
 export type StepInput = {
   id: string;
@@ -30,18 +30,6 @@ export type FlowEdge = {
   source: string;
   target: string;
   sourceHandle?: string;
-};
-
-export type RunLog = {
-  node: string;
-  type: string;
-  detail: string;
-};
-
-export type RunResult = {
-  success: boolean;
-  logs: RunLog[];
-  error?: string;
 };
 
 const UNITS = ["seconds", "minutes", "hours", "days"];
@@ -204,107 +192,4 @@ export function toFlowboard(steps: StepInput[], links: LinkInput[]) {
   });
 
   return { nodes, edges };
-}
-
-const PHRASES: Record<string, [string, string]> = {
-  equals: ["equals", "does not equal"],
-  "not-equals": ["is different from", "is the same as"],
-  contains: ["contains", "does not contain"],
-  "greater-than": ["is greater than", "is not greater than"],
-  "less-than": ["is less than", "is not less than"],
-};
-
-export function run(
-  nodes: FlowNode[],
-  edges: FlowEdge[],
-  sampleData: Record<string, unknown>
-): RunResult {
-  const logs: RunLog[] = [];
-  const trigger = nodes.find((n) => n.type === "trigger");
-
-  if (!trigger) {
-    return { success: false, logs, error: "Workflow does not have a trigger." };
-  }
-
-  const seen = new Set<string>();
-  let current: FlowNode | undefined = trigger;
-
-  while (current) {
-    const node: FlowNode = current;
-
-    if (seen.has(node.id)) {
-      return { success: false, logs, error: "Workflow contains a loop." };
-    }
-    seen.add(node.id);
-
-    const label = node.data?.label ?? node.type;
-    const add = (detail: string) => logs.push({ node: label, type: node.type, detail });
-
-    if (node.type === "end") {
-      add("Workflow finished.");
-      return { success: true, logs };
-    }
-
-    let edge: FlowEdge | undefined;
-
-    if (node.type === "condition") {
-      const { field, operator, value } = node.data;
-      const raw = sampleData[(field ?? "").trim()];
-
-      if (raw === undefined || raw === null) {
-        return {
-          success: false,
-          logs,
-          error: `Condition "${label}" checks "${field}", but the sample data has no such field.`,
-        };
-      }
-
-      const actual = String(raw).trim();
-      const expected = (value ?? "").trim();
-      let result: boolean;
-
-      if (operator === "equals") result = actual === expected;
-      else if (operator === "not-equals") result = actual !== expected;
-      else if (operator === "contains") result = actual.toLowerCase().includes(expected.toLowerCase());
-      else {
-        const a = Number(actual);
-        const b = Number(expected);
-        if (!Number.isFinite(a) || !Number.isFinite(b)) {
-          return {
-            success: false,
-            logs,
-            error: `Condition "${label}" needs numbers to compare, but got "${actual}" and "${expected}".`,
-          };
-        }
-        result = operator === "greater-than" ? a > b : a < b;
-      }
-
-      const branch = result ? "yes" : "no";
-      const phrase = (PHRASES[operator ?? ""] ?? ["matches", "does not match"])[result ? 0 : 1];
-      add(`${field} is "${actual}", which ${phrase} "${expected}". Took ${branch.toUpperCase()}.`);
-      edge = edges.find((e) => e.source === node.id && e.sourceHandle === branch);
-    } else {
-      if (node.type === "delay") {
-        add(`Waited ${node.data.duration} ${node.data.unit} (skipped in this run).`);
-      } else {
-        add(node.type === "trigger" ? "Workflow started." : "Step completed.");
-      }
-      edge = edges.find((e) => e.source === node.id);
-    }
-
-    if (!edge) {
-      return { success: false, logs, error: `"${label}" has no next step.` };
-    }
-
-    const target: string = edge.target;
-    const next: FlowNode | undefined = nodes.find((n) => n.id === target);
-
-    if (!next) {
-      return { success: false, logs, error: "A link points to a missing step." };
-    }
-
-    current = next;
-  }
-
-  return { success: false, logs, error: "Workflow stopped unexpectedly." };
 }

@@ -8,7 +8,9 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 
 ## What it does
 
+- Describe a workflow in one sentence and have AI build it, checked and laid out for you
 - Build workflows on a canvas with Trigger, Action, Condition, Delay and End nodes
+- Undo and redo canvas changes with Ctrl+Z and Ctrl+Shift+Z
 - Validate a workflow before running it (missing connections, unreachable ends, incomplete branches)
 - Run a workflow and watch the path light up as it executes
 - Every Condition explains its decision in plain words, for example: `status is "pending", which does not equal "active". Took NO.`
@@ -27,13 +29,14 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 ## Tech stack
 
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Flow, React Router, Motion
-- **Backend:** Node.js, Express, Prisma 7
+- **Backend:** Node.js, Express, Prisma 7, Groq (AI generation)
 - **Database:** PostgreSQL (Supabase)
 - **Hosting:** Vercel (frontend), Render (API)
 
 ## How it works
 
 - `src/execution/executeWorkflow.ts` walks the graph from the Trigger, evaluates each Condition against the sample data, follows the matching branch and records a plain-language explanation for every step
+- `server/src/generateWorkflow.ts` sends the description to Groq and requires the reply in a fixed step-and-link format. The reply is checked with the same rules as a hand-built workflow, and the AI gets one chance to fix any problems before the workflow is saved
 - `src/execution/validateWorkflow.ts` checks the graph before every run, and a workflow with validation issues does not run
 - `src/execution/runScenarios.ts` runs every saved scenario through the same engine with the pauses switched off, compares the End each one reached with the End it expected, and reports the Condition branches that were never taken
 - Running state is shown through display-only copies of the nodes and edges, so highlighting a node never marks the workflow as having unsaved changes
@@ -78,7 +81,10 @@ Create `server/.env`:
 
 ```
 DATABASE_URL=your_postgres_connection_string
+GROQ_API_KEY=your_groq_api_key
 ```
+
+`GROQ_API_KEY` is only needed for the AI box. A free key is available at console.groq.com, and everything else works without it.
 
 Then run:
 
@@ -103,6 +109,7 @@ The validation and execution logic are covered by unit tests written with Vitest
 | --- | --- | --- |
 | GET | `/api/workflows` | List workflows |
 | POST | `/api/workflows` | Create a workflow |
+| POST | `/api/workflows/generate` | Build a workflow from a description, limited to 10 an hour per visitor |
 | GET | `/api/workflows/:id` | Get one workflow, by its id or the first 8 characters of it |
 | PATCH | `/api/workflows/:id` | Update a workflow |
 | DELETE | `/api/workflows/:id` | Delete a workflow |
@@ -118,6 +125,5 @@ The validation and execution logic are covered by unit tests written with Vitest
 ## Roadmap
 
 - Run history saved to the database
-- Undo and redo
 - JSON export and import
 - Workflow templates
