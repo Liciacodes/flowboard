@@ -15,7 +15,7 @@ import {
 
 import "@xyflow/react/dist/style.css";
 
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 
@@ -33,6 +33,7 @@ import { useWorkflowRun } from "./useWorkflowRun";
 
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
+import { getWorkflowKey, getWorkflowPath } from "../../workflowUrl";
 import type { WorkFlowNodeType } from "../../types/workflow";
 
 const nodeTypes = {
@@ -71,7 +72,12 @@ const defaultNodeData: Record<WorkFlowNodeType, Record<string, string>> = {
 };
 
 function FlowEditorCanvas() {
-  const { id } = useParams();
+  const { slug } = useParams();
+  const workflowKey = getWorkflowKey(slug ?? "");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -136,7 +142,9 @@ function FlowEditorCanvas() {
   useEffect(() => {
     const loadWorkflow = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/workflows/${id}`);
+        const response = await fetch(
+          `${API_URL}/api/workflows/${workflowKey}`,
+        );
 
         if (!response.ok) {
           throw new Error("Failed to load workflow");
@@ -144,6 +152,7 @@ function FlowEditorCanvas() {
 
         const data = await response.json();
 
+        setWorkflowId(data.workflow.id);
         setNodes(data.workflow.nodes);
         setEdges(data.workflow.edges);
         setWorkflowName(data.workflow.name);
@@ -162,7 +171,38 @@ function FlowEditorCanvas() {
     };
 
     loadWorkflow();
-  }, [id, loadAttempt, setNodes, setEdges]);
+  }, [workflowKey, loadAttempt, setNodes, setEdges]);
+
+  const savedName = savedWorkflow?.name;
+
+  // Keep the address in step with the saved name, for example after a rename.
+  useEffect(() => {
+    if (
+      !workflowId ||
+      savedName === undefined ||
+      !workflowId.startsWith(workflowKey)
+    ) {
+      return;
+    }
+
+    const path = getWorkflowPath({ id: workflowId, name: savedName });
+
+    if (pathname !== path) {
+      navigate(path, { replace: true });
+    }
+  }, [workflowId, workflowKey, savedName, pathname, navigate]);
+
+  useEffect(() => {
+    const previousTitle = document.title;
+
+    if (savedName) {
+      document.title = `${savedName} · Flowboard`;
+    }
+
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [savedName]);
 
   const handleRetryLoad = () => {
     setIsLoading(true);
@@ -196,14 +236,14 @@ function FlowEditorCanvas() {
   }, [isDialogOpen, isNodeMenuOpen, isSampleDataOpen]);
 
   const handleSaveWorkflow = async () => {
-    if (!hasUnsavedChanges || saveStatus === "saving") {
+    if (!workflowId || !hasUnsavedChanges || saveStatus === "saving") {
       return;
     }
 
     setSaveStatus("saving");
 
     try {
-      const response = await fetch(`${API_URL}/api/workflows/${id}`, {
+      const response = await fetch(`${API_URL}/api/workflows/${workflowId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

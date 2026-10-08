@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { demoNodes, demoEdges } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
+import { getWorkflowPath } from "../../workflowUrl";
 import ConfirmDialog from "../ConfirmDialog";
 
 type PreviewNode = {
@@ -256,7 +257,7 @@ export default function WorkflowsPage() {
 
       const data = await response.json();
 
-      navigate(`/workflows/${data.workflow.id}`);
+      navigate(getWorkflowPath(data.workflow));
     } catch (error) {
       console.error("Error creating workflow:", error);
     } finally {
@@ -500,7 +501,7 @@ export default function WorkflowsPage() {
                   key={workflow.id}
                   className="group flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4 transition hover:-translate-y-0.5 hover:border-neutral-600 hover:bg-neutral-900"
                 >
-                  <Link to={`/workflows/${workflow.id}`} className="block">
+                  <Link to={getWorkflowPath(workflow)} className="block">
                     <WorkflowPreview
                       nodes={workflow.nodes ?? []}
                       edges={workflow.edges ?? []}
@@ -529,7 +530,7 @@ export default function WorkflowsPage() {
 
                   <div className="mt-4 flex items-center gap-1 border-t border-neutral-800 pt-3">
                     <Link
-                      to={`/workflows/${workflow.id}`}
+                      to={getWorkflowPath(workflow)}
                       className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
                     >
                       Open

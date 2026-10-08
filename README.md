@@ -100,7 +100,7 @@ The validation and execution logic are covered by unit tests written with Vitest
 | --- | --- | --- |
 | GET | `/api/workflows` | List workflows |
 | POST | `/api/workflows` | Create a workflow |
-| GET | `/api/workflows/:id` | Get one workflow |
+| GET | `/api/workflows/:id` | Get one workflow, by its id or the first 8 characters of it |
 | PATCH | `/api/workflows/:id` | Update a workflow |
 | DELETE | `/api/workflows/:id` | Delete a workflow |
 | POST | `/api/workflows/:id/duplicate` | Duplicate a workflow |

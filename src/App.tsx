@@ -7,7 +7,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<WorkflowsPage />} />
-      <Route path="/workflows/:id" element={<FlowEditor />} />
+      <Route path="/workflows/:slug" element={<FlowEditor />} />
     </Routes>
   );
 }

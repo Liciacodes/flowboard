@@ -15,6 +15,8 @@ const prisma = new PrismaClient({
   adapter,
 });
 
+const SHORT_ID_PATTERN = /^[0-9a-f]{8}$/i;
+
 const app = express();
 
 app.use(cors());
@@ -74,11 +76,20 @@ app.get("/api/workflows/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const workflow = await prisma.workflow.findUnique({
-      where: {
-        id,
-      },
-    });
+    // The editor's links carry only the first 8 characters of the id.
+    const workflow = SHORT_ID_PATTERN.test(id)
+      ? await prisma.workflow.findFirst({
+          where: {
+            id: {
+              startsWith: id.toLowerCase(),
+            },
+          },
+        })
+      : await prisma.workflow.findUnique({
+          where: {
+            id,
+          },
+        });
 
     if (!workflow) {
       return res.status(404).json({
