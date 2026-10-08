@@ -244,6 +244,23 @@ describe("executeWorkflow delays", () => {
     expect(Date.now() - startedAt).toBe(3 * 600 + 2 * 300 + 1500);
   });
 
+  it("does not wait at all when the run is instant", async () => {
+    const { nodes, edges } = delayWorkflow({ duration: "3", unit: "days" });
+    const startedAt = Date.now();
+
+    const result = await run(nodes, edges, undefined, {}, undefined, {
+      instant: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.logs.map((log) => log.nodeId)).toEqual([
+      "trigger",
+      "pause",
+      "end",
+    ]);
+    expect(Date.now() - startedAt).toBe(0);
+  });
+
   it("fails on an invalid duration or unit", async () => {
     const badDuration = delayWorkflow({ duration: "soon", unit: "hours" });
     const badUnit = delayWorkflow({ duration: "1", unit: "weeks" });

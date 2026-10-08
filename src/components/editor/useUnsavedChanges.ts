@@ -3,17 +3,25 @@ import { useBlocker } from "react-router-dom";
 import type { Edge, Node } from "@xyflow/react";
 
 import { isSameWorkflowPath } from "../../workflowUrl";
+import type { Scenario } from "../../types/workflow";
 
 export type WorkflowState = {
   name: string;
   nodes: Node[];
   edges: Edge[];
+  scenarios: Scenario[];
 };
 
-const getWorkflowSnapshot = ({ name, nodes, edges }: WorkflowState) => ({
+const getWorkflowSnapshot = ({
+  name,
+  nodes,
+  edges,
+  scenarios,
+}: WorkflowState) => ({
   name,
   nodes: nodes.map(({ selected, dragging, measured, ...node }) => node),
   edges: edges.map(({ selected, ...edge }) => edge),
+  scenarios,
 });
 
 export function useUnsavedChanges(

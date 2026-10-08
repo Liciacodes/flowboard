@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 import type { WorkFlowNodeType } from "../../types/workflow";
 
@@ -18,6 +18,7 @@ type EditorToolbarProps = {
   onToggleSampleData: () => void;
   sampleDataText: string;
   onSampleDataChange: (text: string) => void;
+  scenariosPanel: ReactNode;
   hasUnsavedChanges: boolean;
   saveStatus: SaveStatus;
   onSave: () => void;
@@ -55,6 +56,7 @@ export default function EditorToolbar({
   onToggleSampleData,
   sampleDataText,
   onSampleDataChange,
+  scenariosPanel,
   hasUnsavedChanges,
   saveStatus,
   onSave,
@@ -106,7 +108,7 @@ export default function EditorToolbar({
           aria-controls={sampleDataId}
           className={toolbarButton}
         >
-          {isSampleDataOpen ? "Hide sample data" : "Sample data"}
+          {isSampleDataOpen ? "Hide test data" : "Test data"}
         </button>
 
         {hasUnsavedChanges && (
@@ -125,29 +127,30 @@ export default function EditorToolbar({
       </div>
 
       {isSampleDataOpen && (
-        <div
-          id={sampleDataId}
-          className="mt-3 w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-xl"
-        >
-          <label
-            htmlFor={sampleDataInputId}
-            className="block text-xs text-neutral-400"
-          >
-            Sample data (JSON)
-          </label>
+        <div id={sampleDataId} className="mt-3 space-y-2">
+          <div className="w-80 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-xl">
+            <label
+              htmlFor={sampleDataInputId}
+              className="block text-xs text-neutral-400"
+            >
+              Sample data (JSON)
+            </label>
 
-          <textarea
-            id={sampleDataInputId}
-            value={sampleDataText}
-            onChange={(event) => onSampleDataChange(event.target.value)}
-            rows={3}
-            spellCheck={false}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-900 p-2 font-mono text-xs text-white outline-none focus:border-neutral-500"
-          />
+            <textarea
+              id={sampleDataInputId}
+              value={sampleDataText}
+              onChange={(event) => onSampleDataChange(event.target.value)}
+              rows={3}
+              spellCheck={false}
+              className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-900 p-2 font-mono text-xs text-white outline-none focus:border-neutral-500"
+            />
 
-          <p className="mt-1 text-[11px] text-neutral-500">
-            Conditions read their field from this data.
-          </p>
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Conditions read their field from this data.
+            </p>
+          </div>
+
+          {scenariosPanel}
         </div>
       )}
 

@@ -28,13 +28,15 @@ import ConfirmDialog from "../ConfirmDialog";
 import PropertiesPanel from "./PropertiesPanel";
 import EditorToolbar, { type SaveStatus } from "./EditorToolbar";
 import ResultsPanel from "./ResultsPanel";
+import ScenariosPanel from "./ScenariosPanel";
+import { useScenarioRun } from "./useScenarioRun";
 import { useUnsavedChanges, type WorkflowState } from "./useUnsavedChanges";
 import { useWorkflowRun } from "./useWorkflowRun";
 
-import { demoNodes, demoEdges } from "../../data/demoWorkflow";
+import { demoNodes, demoEdges, demoScenarios } from "../../data/demoWorkflow";
 import { API_URL } from "../../config";
 import { getWorkflowKey, getWorkflowPath } from "../../workflowUrl";
-import type { WorkFlowNodeType } from "../../types/workflow";
+import type { Scenario, WorkFlowNodeType } from "../../types/workflow";
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -86,6 +88,8 @@ function FlowEditorCanvas() {
   const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
   const [isSampleDataOpen, setIsSampleDataOpen] = useState(false);
 
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+
   const [workflowName, setWorkflowName] = useState("");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +104,7 @@ function FlowEditorCanvas() {
   const { screenToFlowPosition, fitView } = useReactFlow();
 
   const { hasUnsavedChanges, blocker } = useUnsavedChanges(
-    { name: workflowName, nodes, edges },
+    { name: workflowName, nodes, edges, scenarios },
     savedWorkflow,
   );
 
@@ -108,7 +112,10 @@ function FlowEditorCanvas() {
     setIsSampleDataOpen(true),
   );
 
+  const scenarioRun = useScenarioRun(nodes, edges, scenarios);
+
   const { isRunning, activeNodeId, activeEdgeId } = workflowRun;
+  const uncoveredEdgeIds = scenarioRun.coverage?.uncoveredEdgeIds;
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
@@ -123,16 +130,41 @@ function FlowEditorCanvas() {
 
   const displayEdges = useMemo(
     () =>
-      edges.map((edge) =>
-        edge.id === activeEdgeId
-          ? {
-              ...edge,
-              animated: true,
-              style: { stroke: "#f5a623", strokeWidth: 2 },
-            }
-          : edge,
-      ),
-    [edges, activeEdgeId],
+      edges.map((edge) => {
+        if (edge.id === activeEdgeId) {
+          return {
+            ...edge,
+            animated: true,
+            style: { stroke: "#f5a623", strokeWidth: 2 },
+          };
+        }
+
+        // A branch that no scenario took in the last "Run all".
+        if (uncoveredEdgeIds?.includes(edge.id)) {
+          return {
+            ...edge,
+            style: {
+              stroke: "#f87171",
+              strokeWidth: 1.5,
+              strokeDasharray: "6 4",
+            },
+          };
+        }
+
+        return edge;
+      }),
+    [edges, activeEdgeId, uncoveredEdgeIds],
+  );
+
+  const endOptions = useMemo(
+    () =>
+      nodes
+        .filter((node) => node.type === "end")
+        .map((node) => ({
+          id: node.id,
+          label: String(node.data.label ?? "End"),
+        })),
+    [nodes],
   );
 
   const onConnect = (connection: Connection) => {
@@ -151,16 +183,19 @@ function FlowEditorCanvas() {
         }
 
         const data = await response.json();
+        const loadedScenarios: Scenario[] = data.workflow.scenarios ?? [];
 
         setWorkflowId(data.workflow.id);
         setNodes(data.workflow.nodes);
         setEdges(data.workflow.edges);
+        setScenarios(loadedScenarios);
         setWorkflowName(data.workflow.name);
 
         setSavedWorkflow({
           name: data.workflow.name,
           nodes: data.workflow.nodes,
           edges: data.workflow.edges,
+          scenarios: loadedScenarios,
         });
       } catch (error) {
         console.error("Error loading workflow:", error);
@@ -252,6 +287,7 @@ function FlowEditorCanvas() {
           name: workflowName,
           nodes,
           edges,
+          scenarios,
           status: "draft",
         }),
       });
@@ -264,6 +300,7 @@ function FlowEditorCanvas() {
         name: workflowName,
         nodes,
         edges,
+        scenarios,
       });
 
       setSaveStatus("saved");
@@ -295,11 +332,35 @@ function FlowEditorCanvas() {
     setIsDemoConfirmOpen(false);
     setNodes(demoNodes);
     setEdges(demoEdges);
+    setScenarios(demoScenarios);
     setSelectedNodeId(null);
     workflowRun.clearResults();
+    scenarioRun.clear();
     setIsNodeMenuOpen(false);
 
     setTimeout(() => fitView({ padding: 0.35, duration: 400 }), 50);
+  };
+
+  const handleAddScenario = (scenario: Omit<Scenario, "id">) => {
+    setScenarios((currentScenarios) => [
+      ...currentScenarios,
+      { ...scenario, id: crypto.randomUUID() },
+    ]);
+
+    scenarioRun.clear();
+  };
+
+  const handleDeleteScenario = (scenarioId: string) => {
+    setScenarios((currentScenarios) =>
+      currentScenarios.filter((scenario) => scenario.id !== scenarioId),
+    );
+
+    scenarioRun.clear();
+  };
+
+  const handleLoadScenario = (scenario: Scenario) => {
+    workflowRun.setSampleDataText(JSON.stringify(scenario.sampleData));
+    setIsSampleDataOpen(true);
   };
 
   const handleNodeDataChange = (key: string, value: string) => {
@@ -440,6 +501,20 @@ function FlowEditorCanvas() {
         onToggleSampleData={() => setIsSampleDataOpen((open) => !open)}
         sampleDataText={workflowRun.sampleDataText}
         onSampleDataChange={workflowRun.setSampleDataText}
+        scenariosPanel={
+          <ScenariosPanel
+            scenarios={scenarios}
+            endOptions={endOptions}
+            sampleDataText={workflowRun.sampleDataText}
+            results={scenarioRun.results}
+            coverage={scenarioRun.coverage}
+            error={scenarioRun.error}
+            onAdd={handleAddScenario}
+            onLoad={handleLoadScenario}
+            onDelete={handleDeleteScenario}
+            onRunAll={scenarioRun.runAll}
+          />
+        }
         hasUnsavedChanges={hasUnsavedChanges}
         saveStatus={saveStatus}
         onSave={handleSaveWorkflow}

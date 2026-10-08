@@ -49,13 +49,14 @@ app.get("/api/workflows", async (_req, res) => {
 
 app.post("/api/workflows", async (req, res) => {
   try {
-    const { name, nodes, edges } = req.body;
+    const { name, nodes, edges, scenarios } = req.body;
 
     const workflow = await prisma.workflow.create({
       data: {
         name,
         nodes,
         edges,
+        scenarios,
       },
     });
 
@@ -112,7 +113,7 @@ app.get("/api/workflows/:id", async (req, res) => {
 app.patch("/api/workflows/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, nodes, edges, status } = req.body;
+    const { name, nodes, edges, scenarios, status } = req.body;
 
     const workflow = await prisma.workflow.update({
       where: {
@@ -122,6 +123,7 @@ app.patch("/api/workflows/:id", async (req, res) => {
         name,
         edges,
         nodes,
+        scenarios,
         status,
       },
     });
@@ -183,6 +185,7 @@ app.post("/api/workflows/:id/duplicate", async (req, res) => {
         name: `${workflow.name} Copy`,
         nodes: workflow.nodes ?? [],
         edges: workflow.edges ?? [],
+        scenarios: workflow.scenarios ?? [],
         status: workflow.status,
       },
     });

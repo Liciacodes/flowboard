@@ -1,5 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import type { Scenario } from "../types/workflow";
+
 export const demoNodes: Node[] = [
   {
     id: "demo-trigger",
@@ -74,4 +76,19 @@ export const demoEdges: Edge[] = [
   { id: "demo-e5", source: "demo-welcome", target: "demo-complete" },
   { id: "demo-e6", source: "demo-wait", target: "demo-reminder" },
   { id: "demo-e7", source: "demo-reminder", target: "demo-stop" },
+];
+
+export const demoScenarios: Scenario[] = [
+  {
+    id: "demo-scenario-active",
+    name: "Active customer",
+    sampleData: { status: "active" },
+    expectedEndId: "demo-complete",
+  },
+  {
+    id: "demo-scenario-pending",
+    name: "Pending customer",
+    sampleData: { status: "pending" },
+    expectedEndId: "demo-stop",
+  },
 ];

@@ -18,6 +18,7 @@ model Workflow {
   name          String
   nodes         Json
   edges         Json
+  scenarios     Json     @default("[]")
   status        String   @default("draft")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

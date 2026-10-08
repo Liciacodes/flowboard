@@ -23,6 +23,11 @@ export type ExecuteWorkflowResult = {
   error?: string;
 };
 
+export type ExecuteWorkflowOptions = {
+  // Skips every pause, so many runs can finish at once.
+  instant?: boolean;
+};
+
 const wait = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -134,8 +139,11 @@ export async function executeWorkflow(
   onNodeStart?: (nodeId: string) => void,
   sampleData: Record<string, unknown> = {},
   onEdgeTaken?: (edgeId: string) => void,
+  options: ExecuteWorkflowOptions = {},
 ): Promise<ExecuteWorkflowResult> {
   const logs: ExecutionLog[] = [];
+
+  const pause = options.instant ? () => Promise.resolve() : wait;
 
   const triggerNode = nodes.find((node) => node.type === "trigger");
 
@@ -168,7 +176,7 @@ export async function executeWorkflow(
         : currentNode.type ?? "Unknown node";
 
     onNodeStart?.(currentNode.id);
-    await wait(600);
+    await pause(600);
 
     const log = (detail?: string) => {
       logs.push({
@@ -198,7 +206,7 @@ export async function executeWorkflow(
         };
       }
 
-      await wait(Math.min(delayInMilliseconds, 1500));
+      await pause(Math.min(delayInMilliseconds, 1500));
 
       log(`Waited ${duration} ${unit} (shortened for the demo).`);
     }
@@ -269,7 +277,7 @@ export async function executeWorkflow(
       );
 
       onEdgeTaken?.(conditionEdge.id);
-      await wait(300);
+      await pause(300);
 
       currentNode = nextNode;
 
@@ -301,7 +309,7 @@ export async function executeWorkflow(
     }
 
     onEdgeTaken?.(outgoingEdge.id);
-    await wait(300);
+    await pause(300);
 
     currentNode = nextNode;
   }

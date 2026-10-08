@@ -13,6 +13,7 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 - Run a workflow and watch the path light up as it executes
 - Every Condition explains its decision in plain words, for example: `status is "pending", which does not equal "active". Took NO.`
 - Edit sample data to send the same workflow down a different path
+- Save sample data as scenarios with the End each should reach, run them all at once, and see which Condition branches no scenario takes
 - Manage workflows from a dashboard with previews, search, duplicate and delete
 - Unsaved changes protection when you leave the editor or close the tab
 
@@ -20,7 +21,8 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 
 1. Open the live demo and click **Start from demo**
 2. Click **Run workflow** and watch it take the YES path
-3. Open **Sample data**, change it to `{"status": "pending"}` and run again to see the NO path
+3. Open **Test data**, change the sample data to `{"status": "pending"}` and run again to see the NO path
+4. In the same panel, click **Run all** under Scenarios. Delete one scenario and run again to see the untested branch turn dashed red
 
 ## Tech stack
 
@@ -33,6 +35,7 @@ The first request can take up to a minute, because the free-tier backend sleeps 
 
 - `src/execution/executeWorkflow.ts` walks the graph from the Trigger, evaluates each Condition against the sample data, follows the matching branch and records a plain-language explanation for every step
 - `src/execution/validateWorkflow.ts` checks the graph before every run, and a workflow with validation issues does not run
+- `src/execution/runScenarios.ts` runs every saved scenario through the same engine with the pauses switched off, compares the End each one reached with the End it expected, and reports the Condition branches that were never taken
 - Running state is shown through display-only copies of the nodes and edges, so highlighting a node never marks the workflow as having unsaved changes
 - Delays are shortened to at most 1.5 seconds during test runs, so a demo does not wait for hours
 

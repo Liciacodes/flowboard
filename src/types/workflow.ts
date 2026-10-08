@@ -29,3 +29,11 @@ export type DelayNodeData = {
 export type EndNodeData = {
   label: string;
 }
+
+export type Scenario = {
+  id: string;
+  name: string;
+  sampleData: Record<string, unknown>;
+  // null means the scenario passes at any End node.
+  expectedEndId: string | null;
+};

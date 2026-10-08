@@ -11,7 +11,7 @@ import {
   type ValidationIssue,
 } from "../../execution/validateWorkflow";
 
-const parseSampleData = (text: string): Record<string, unknown> | null => {
+export const parseSampleData = (text: string): Record<string, unknown> | null => {
   try {
     const parsed = JSON.parse(text);
 
