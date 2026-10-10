@@ -6,6 +6,8 @@ type PropertiesPanelProps = {
   selectedNode: Node;
   onLabelChange: (label: string) => void;
   onNodeDataChange: (key: string, value: string) => void;
+  // Called when a field gains focus, so a whole edit is one undo step.
+  onEditStart: () => void;
   onDeleteNode: () => void;
   onClose: () => void;
 };
@@ -29,6 +31,7 @@ export default function PropertiesPanel({
   selectedNode,
   onLabelChange,
   onNodeDataChange,
+  onEditStart,
   onDeleteNode,
   onClose,
 }: PropertiesPanelProps) {
@@ -42,6 +45,7 @@ export default function PropertiesPanel({
       exit={{ x: 320, opacity: 0 }}
       transition={{ duration: 0.2 }}
       aria-label="Node properties"
+      onFocus={onEditStart}
       className="absolute right-0 top-0 z-10 h-full w-72 border-l border-neutral-800 bg-neutral-950 p-5 text-white"
     >
       <div className="mb-6 flex items-start justify-between">

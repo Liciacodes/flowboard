@@ -2,6 +2,7 @@ import {
   addEdge,
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   ReactFlow,
   type Connection,
@@ -30,6 +31,7 @@ import EditorToolbar, { type SaveStatus } from "./EditorToolbar";
 import ResultsPanel from "./ResultsPanel";
 import ScenariosPanel from "./ScenariosPanel";
 import { useScenarioRun } from "./useScenarioRun";
+import { useUndoRedo } from "./useUndoRedo";
 import { useUnsavedChanges, type WorkflowState } from "./useUnsavedChanges";
 import { useWorkflowRun } from "./useWorkflowRun";
 
@@ -117,6 +119,15 @@ function FlowEditorCanvas() {
   const { isRunning, activeNodeId, activeEdgeId } = workflowRun;
   const uncoveredEdgeIds = scenarioRun.coverage?.uncoveredEdgeIds;
 
+  const {
+    takeSnapshot,
+    reset: resetHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo(nodes, edges, setNodes, setEdges, isRunning);
+
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
 
   const displayNodes = useMemo(
@@ -168,6 +179,7 @@ function FlowEditorCanvas() {
   );
 
   const onConnect = (connection: Connection) => {
+    takeSnapshot();
     setEdges((currentEdges) => addEdge(connection, currentEdges));
   };
 
@@ -197,6 +209,8 @@ function FlowEditorCanvas() {
           edges: data.workflow.edges,
           scenarios: loadedScenarios,
         });
+
+        resetHistory();
       } catch (error) {
         console.error("Error loading workflow:", error);
         setLoadError(true);
@@ -206,7 +220,7 @@ function FlowEditorCanvas() {
     };
 
     loadWorkflow();
-  }, [workflowKey, loadAttempt, setNodes, setEdges]);
+  }, [workflowKey, loadAttempt, setNodes, setEdges, resetHistory]);
 
   const savedName = savedWorkflow?.name;
 
@@ -330,6 +344,7 @@ function FlowEditorCanvas() {
 
   const loadDemo = () => {
     setIsDemoConfirmOpen(false);
+    takeSnapshot();
     setNodes(demoNodes);
     setEdges(demoEdges);
     setScenarios(demoScenarios);
@@ -394,6 +409,7 @@ function FlowEditorCanvas() {
       data: defaultNodeData[type],
     };
 
+    takeSnapshot();
     setNodes((currentNodes) => [...currentNodes, newNode]);
 
     setIsNodeMenuOpen(false);
@@ -401,6 +417,8 @@ function FlowEditorCanvas() {
 
   const deleteSelectedNode = () => {
     if (!selectedNodeId) return;
+
+    takeSnapshot();
 
     setNodes((currentNodes) =>
       currentNodes.filter((node) => node.id !== selectedNodeId),
@@ -472,7 +490,11 @@ function FlowEditorCanvas() {
         onNodeClick={(_, node) => {
           setSelectedNodeId(node.id);
         }}
+        onNodeDragStart={() => takeSnapshot()}
+        onEdgesDelete={() => takeSnapshot()}
         onNodesDelete={(deletedNodes) => {
+          takeSnapshot();
+
           const selectedNodeWasDeleted = deletedNodes.some(
             (node) => node.id === selectedNodeId,
           );
@@ -484,7 +506,25 @@ function FlowEditorCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 
-        <Controls />
+        <Controls>
+          <ControlButton
+            onClick={undo}
+            disabled={!canUndo}
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+          >
+            ↶
+          </ControlButton>
+
+          <ControlButton
+            onClick={redo}
+            disabled={!canRedo}
+            aria-label="Redo"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            ↷
+          </ControlButton>
+        </Controls>
       </ReactFlow>
 
       <EditorToolbar
@@ -528,6 +568,7 @@ function FlowEditorCanvas() {
             executionLogs={workflowRun.executionLogs}
             executionError={workflowRun.executionError}
             executionComplete={workflowRun.executionComplete}
+            besideTestData={isSampleDataOpen}
             onClose={workflowRun.clearResults}
           />
         )}
@@ -539,6 +580,7 @@ function FlowEditorCanvas() {
             selectedNode={selectedNode}
             onLabelChange={(label) => handleNodeDataChange("label", label)}
             onNodeDataChange={handleNodeDataChange}
+            onEditStart={takeSnapshot}
             onDeleteNode={deleteSelectedNode}
             onClose={() => setSelectedNodeId(null)}
           />

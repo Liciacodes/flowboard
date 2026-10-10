@@ -7,6 +7,8 @@ type ResultsPanelProps = {
   executionLogs: ExecutionLog[];
   executionError: string | null;
   executionComplete: boolean;
+  // Moves the panel clear of the test data panel while that is open.
+  besideTestData: boolean;
   onClose: () => void;
 };
 
@@ -16,10 +18,15 @@ export default function ResultsPanel({
   executionLogs,
   executionError,
   executionComplete,
+  besideTestData,
   onClose,
 }: ResultsPanelProps) {
   return (
-    <div className="absolute bottom-4 left-16 z-10 max-h-[40vh] w-80 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-sm text-white shadow-xl backdrop-blur">
+    <div
+      className={`absolute bottom-4 z-10 max-h-[40vh] w-80 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950/95 p-3 text-sm text-white shadow-xl backdrop-blur ${
+        besideTestData ? "left-88" : "left-16"
+      }`}
+    >
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">
           Results
