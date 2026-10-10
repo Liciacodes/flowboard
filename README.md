@@ -2,6 +2,10 @@
 
 A visual workflow editor that validates, runs and explains every decision.
 
+https://github.com/user-attachments/assets/a6126691-0d6b-45ba-af53-8ce54ebb2af0
+
+
+
 **Live demo:** https://flowboard-five-tau.vercel.app/
 
 The first request can take up to a minute, because the free-tier backend sleeps when idle.
